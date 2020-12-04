@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package repository
+package registry
 
 import (
 	"context"
@@ -26,37 +26,37 @@ import (
 	"path/filepath"
 )
 
-func NewService(repo *Repository, compiler *compiler.PluginCompiler) northbound.Service {
+func NewService(registry *ConfigModelRegistry, compiler *compiler.PluginCompiler) northbound.Service {
 	return &Service{
-		repo:     repo,
+		registry:     registry,
 		compiler: compiler,
 	}
 }
 
 type Service struct {
-	repo     *Repository
+	registry     *ConfigModelRegistry
 	compiler *compiler.PluginCompiler
 }
 
 func (s *Service) Register(r *grpc.Server) {
 	server := &Server{
-		repo:     s.repo,
+		registry:     s.registry,
 		compiler: s.compiler,
 	}
-	configmodel.RegisterRepositoryServiceServer(r, server)
+	configmodel.RegisterConfigModelRegistryServiceServer(r, server)
 }
 
 var _ northbound.Service = &Service{}
 
-// Server is a repository server
+// Server is a registry server
 type Server struct {
-	repo     *Repository
+	registry     *ConfigModelRegistry
 	compiler *compiler.PluginCompiler
 }
 
 func (s *Server) GetModel(ctx context.Context, request *configmodel.GetModelRequest) (*configmodel.GetModelResponse, error) {
 	log.Debugf("Received GetModelRequest %+v", request)
-	modelInfo, err := s.repo.GetModel(model.Name(request.Name), model.Version(request.Version))
+	modelInfo, err := s.registry.GetModel(model.Name(request.Name), model.Version(request.Version))
 	if err != nil {
 		log.Warnf("GetModelRequest %+v failed: %v", request, err)
 		return nil, err
@@ -84,7 +84,7 @@ func (s *Server) GetModel(ctx context.Context, request *configmodel.GetModelRequ
 
 func (s *Server) ListModels(ctx context.Context, request *configmodel.ListModelsRequest) (*configmodel.ListModelsResponse, error) {
 	log.Debugf("Received ListModelsRequest %+v", request)
-	modelInfos, err := s.repo.ListModels()
+	modelInfos, err := s.registry.ListModels()
 	if err != nil {
 		log.Warnf("ListModelsRequest %+v failed: %v", request, err)
 		return nil, err
@@ -140,7 +140,7 @@ func (s *Server) PushModel(ctx context.Context, request *configmodel.PushModelRe
 		log.Warnf("PushModelRequest %+v failed: %v", request, err)
 		return nil, err
 	}
-	err = s.repo.addModel(modelInfo)
+	err = s.registry.addModel(modelInfo)
 	response := &configmodel.PushModelResponse{}
 	log.Debugf("Sending PushModelResponse %+v", response)
 	return response, nil
@@ -148,12 +148,12 @@ func (s *Server) PushModel(ctx context.Context, request *configmodel.PushModelRe
 
 func (s *Server) DeleteModel(ctx context.Context, request *configmodel.DeleteModelRequest) (*configmodel.DeleteModelResponse, error) {
 	log.Debugf("Received DeleteModelRequest %+v", request)
-	err := s.repo.removeModel(model.Name(request.Name), model.Version(request.Version))
+	err := s.registry.removeModel(model.Name(request.Name), model.Version(request.Version))
 	if err != nil {
 		log.Warnf("DeleteModelRequest %+v failed: %v", request, err)
 		return nil, err
 	}
-	path := filepath.Join(s.repo.Config.Path, getPluginFile(request.Name, request.Version))
+	path := filepath.Join(s.registry.Config.Path, getPluginFile(request.Name, request.Version))
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		os.Remove(path)
 	}
@@ -166,4 +166,4 @@ func getPluginFile(name, version string) string {
 	return fmt.Sprintf("%s-%s.so", name, version)
 }
 
-var _ configmodel.RepositoryServiceServer = &Server{}
+var _ configmodel.ConfigModelRegistryServiceServer = &Server{}

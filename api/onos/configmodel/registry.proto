@@ -65,7 +65,7 @@ message DeleteModelResponse {
 
 }
 
-service RepositoryService {
+service ConfigModelRegistryService {
     rpc GetModel (GetModelRequest) returns (GetModelResponse);
     rpc ListModels (ListModelsRequest) returns (ListModelsResponse);
     rpc PushModel (PushModelRequest) returns (PushModelResponse);

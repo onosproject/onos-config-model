@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package repository
+package registry
 
 import (
 	"encoding/json"
@@ -28,38 +28,38 @@ import (
 
 const jsonExt = ".json"
 
-var log = logging.GetLogger("config-model", "repository")
+var log = logging.GetLogger("config-model", "registry")
 
-// Config is a model plugin repository config
+// Config is a model plugin registry config
 type Config struct {
 	Path string `yaml:"path" json:"path"`
 }
 
-// NewRepository creates a new config model repository
-func NewRepository(config Config) *Repository {
-	return &Repository{
+// NewRegistry creates a new config model registry
+func NewRegistry(config Config) *ConfigModelRegistry {
+	return &ConfigModelRegistry{
 		Config: config,
 	}
 }
 
-// Repository is a repository of config models
-type Repository struct {
+// ConfigModelRegistry is a registry of config models
+type ConfigModelRegistry struct {
 	Config Config
 }
 
 // GetModel gets a model by name and version
-func (r *Repository) GetModel(name model.Name, version model.Version) (model.ConfigModelInfo, error) {
+func (r *ConfigModelRegistry) GetModel(name model.Name, version model.Version) (model.ConfigModelInfo, error) {
 	return loadModel(r.getDescriptorFile(name, version))
 }
 
-// ListModels lists models in the repository
-func (r *Repository) ListModels() ([]model.ConfigModelInfo, error) {
+// ListModels lists models in the registry
+func (r *ConfigModelRegistry) ListModels() ([]model.ConfigModelInfo, error) {
 	return loadModels(r.Config.Path)
 }
 
-// addModel adds a model to the repository
-func (r *Repository) addModel(model model.ConfigModelInfo) error {
-	log.Debugf("Adding model '%s/%s' to repository '%s'", model.Name, model.Version, r.Config.Path)
+// addModel adds a model to the registry
+func (r *ConfigModelRegistry) addModel(model model.ConfigModelInfo) error {
+	log.Debugf("Adding model '%s/%s' to registry '%s'", model.Name, model.Version, r.Config.Path)
 	bytes, err := json.MarshalIndent(model, "", "  ")
 	if err != nil {
 		log.Errorf("Adding model '%s/%s' failed: %v", model.Name, model.Version, err)
@@ -70,13 +70,13 @@ func (r *Repository) addModel(model model.ConfigModelInfo) error {
 		log.Errorf("Adding model '%s/%s' failed: %v", model.Name, model.Version, err)
 		return err
 	}
-	log.Infof("Model '%s/%s' added to repository '%s'", model.Name, model.Version, r.Config.Path)
+	log.Infof("Model '%s/%s' added to registry '%s'", model.Name, model.Version, r.Config.Path)
 	return nil
 }
 
 // removeModel removes a model from the registry
-func (r *Repository) removeModel(name model.Name, version model.Version) error {
-	log.Debugf("Deleting model '%s/%s' from repository '%s'", name, version, r.Config.Path)
+func (r *ConfigModelRegistry) removeModel(name model.Name, version model.Version) error {
+	log.Debugf("Deleting model '%s/%s' from registry '%s'", name, version, r.Config.Path)
 	path := r.getDescriptorFile(name, version)
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		if err := os.Remove(path); err != nil {
@@ -84,11 +84,11 @@ func (r *Repository) removeModel(name model.Name, version model.Version) error {
 			return err
 		}
 	}
-	log.Infof("Model '%s/%s' deleted from repository '%s'", name, version, r.Config.Path)
+	log.Infof("Model '%s/%s' deleted from registry '%s'", name, version, r.Config.Path)
 	return nil
 }
 
-func (r *Repository) getDescriptorFile(name model.Name, version model.Version) string {
+func (r *ConfigModelRegistry) getDescriptorFile(name model.Name, version model.Version) string {
 	return filepath.Join(r.Config.Path, fmt.Sprintf("%s-%s.json", name, version))
 }
 

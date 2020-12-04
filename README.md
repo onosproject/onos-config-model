@@ -1,7 +1,7 @@
 # Config Model Support
 
 This project provides a library and tools for managing YANG models in Go. It defines
-the primary interfaces for YANG-based `ConfigModel`s, provides a `Repository` abstraction
+the primary interfaces for YANG-based `ConfigModel`s, provides a `Registry` abstraction
 for managing models, and includes a `PluginCompiler` which supports compiling and loading
 models from YANG modules at runtime.
 
@@ -15,16 +15,16 @@ with `make`:
 > make images
 ```
 
-Because the agent compiles Go modules, the `config-agent` image is very large and should
+Because the agent compiles Go modules, the compiler images are very large and should
 not be extended for service images. Instead, the agent should be deployed either as an
 init container or a sidecar to compile and manage config models as part of a deployment.
 
-When deployed as an init container, the `plugin compile` sub-command can be
+When deployed as an init container, the `config-model compile` sub-command can be
 used to compile model plugins for the primary service:
 
 ```bash
-> go run github.com/onosproject/onos-config-model-go/cmd/config-agent \
-    plugin compile \--name test \
+> go run github.com/onosproject/onos-config-model-go/cmd/config-model compile \
+    --name test \
     --version 1.0.0 \
     --module test@2020-11-18=/root/plugins/test/test@2020-11-18.yang \
     --build-path /root/build/test
@@ -38,25 +38,24 @@ the lifetime of a service. To run the agent:
 > make serve
 ```
 
-The agent implements a gRPC API exposing the config model repository to clients. The
-`config-agent` CLI can be used to interact with the agent server:
+The agent implements a gRPC API exposing the config model registry to clients. The
+`config-model registry` sub-commands can be used to interact with the agent server:
 
-To push a new model to the model repo, use the `repo push` sub-command:
+To push a new model to the model registry, use the `registry push` sub-command:
 
 ```bash
-> go run github.com/onosproject/onos-config-model-go/cmd/config-agent \
-    repo push \
+> go run github.com/onosproject/onos-config-model-go/cmd/config-model registry push \
     --name foo \
     --version 1.0.0 \
     --module test@2020-11-18=plugins/test/test@2020-11-18.yang
 ```
 
-The agent will compile the model and add it to the repository. You can list the contents of the
-repository with the `repo list` command or get information about a specific model with the
-`repo get` command:
+The agent will compile the model and add it to the registry. You can list the contents of the
+registry with the `list` command or get information about a specific model with the
+`get` command:
 
 ```bash
-> go run github.com/onosproject/onos-config-model-go/cmd/config-agent repo list
+> go run github.com/onosproject/onos-config-model-go/cmd/config-model registry list
 {
   "name": "foo",
   "version": "1.0.0",
@@ -76,7 +75,7 @@ repository with the `repo list` command or get information about a specific mode
 }
 ```
 
-The JSON output above is the config model definition used to track the model within the model repo.
+The JSON output above is the config model definition used to track the model within the model registry.
 The model plugin can be loaded from within the agent container or any other container that shared
 the model volume with the config agent. To load a model, simply call the `Load` function:
 

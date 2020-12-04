@@ -1,4 +1,18 @@
-package agent
+// Copyright 2020-present Open Networking Foundation.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package main
 
 import (
 	"context"
@@ -9,7 +23,7 @@ import (
 	"github.com/onosproject/onos-config-model-go/api/onos/configmodel"
 	"github.com/onosproject/onos-config-model-go/pkg/compiler"
 	"github.com/onosproject/onos-config-model-go/pkg/model"
-	"github.com/onosproject/onos-config-model-go/pkg/repository"
+	"github.com/onosproject/onos-config-model-go/pkg/registry"
 	"github.com/onosproject/onos-lib-go/pkg/certs"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	"github.com/onosproject/onos-lib-go/pkg/northbound"
@@ -24,40 +38,121 @@ import (
 	"syscall"
 )
 
-var log = logging.GetLogger("config-model", "agent")
+var log = logging.GetLogger("config-model")
 
-func getRepoCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use: "repo",
+func main() {
+	if err := getCmd().Execute(); err != nil {
+		println(err)
+		os.Exit(1)
 	}
-	cmd.AddCommand(getRepoServeCmd())
-	cmd.AddCommand(getRepoGetCmd())
-	cmd.AddCommand(getRepoListCmd())
-	cmd.AddCommand(getRepoPushCmd())
-	cmd.AddCommand(getRepoDeleteCmd())
+}
+
+func getCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use: "config-model",
+	}
+	cmd.AddCommand(getRegistryCmd())
+	cmd.AddCommand(getCompileCmd())
 	return cmd
 }
 
-func getRepoServeCmd() *cobra.Command {
+func getCompileCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:          "compile",
+		Short:        "Compile a config model plugin",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name, _ := cmd.Flags().GetString("name")
+			version, _ := cmd.Flags().GetString("version")
+			modules, _ := cmd.Flags().GetStringToString("module")
+
+			outputPath, _ := cmd.Flags().GetString("output-path")
+			if outputPath == "" {
+				dir, err := os.Getwd()
+				if err != nil {
+					return err
+				}
+				outputPath = dir
+			}
+			buildPath, _ := cmd.Flags().GetString("build-path")
+			if buildPath == "" {
+				buildPath = filepath.Join(outputPath, "build")
+			}
+
+			modelInfo := model.ConfigModelInfo{
+				Name:    model.Name(name),
+				Version: model.Version(version),
+				Modules: []model.ConfigModuleInfo{},
+				Plugin: model.ConfigPluginInfo{
+					Name:    model.Name(name),
+					Version: model.Version(version),
+					File:    fmt.Sprintf("%s-%s.so", name, version),
+				},
+			}
+			for nameVersion, module := range modules {
+				names := strings.Split(nameVersion, "@")
+				if len(names) != 2 {
+					return errors.New("module name must be in the format $name@$version")
+				}
+				name, version := names[0], names[1]
+				data, err := ioutil.ReadFile(module)
+				if err != nil {
+					return err
+				}
+				modelInfo.Modules = append(modelInfo.Modules, model.ConfigModuleInfo{
+					Name:    model.Name(name),
+					Version: model.Version(version),
+					Data:    data,
+				})
+			}
+
+			config := compiler.PluginCompilerConfig{
+				TemplatePath: "pkg/compiler/templates",
+				OutputPath:   outputPath,
+			}
+			return compiler.CompilePlugin(modelInfo, config)
+		},
+	}
+	cmd.Flags().StringP("name", "n", "", "the model name")
+	cmd.Flags().StringP("version", "v", "", "the model version")
+	cmd.Flags().StringToStringP("module", "m", map[string]string{}, "model files")
+	cmd.Flags().StringP("build-path", "b", "", "the build path")
+	cmd.Flags().StringP("output-path", "o", "", "the output path")
+	return cmd
+}
+
+func getRegistryCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use: "registry",
+	}
+	cmd.AddCommand(getRegistryServeCmd())
+	cmd.AddCommand(getRegistryGetCmd())
+	cmd.AddCommand(getRegistryListCmd())
+	cmd.AddCommand(getRegistryPushCmd())
+	cmd.AddCommand(getRegistryDeleteCmd())
+	return cmd
+}
+
+func getRegistryServeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "serve",
-		Short:        "Start the model repository server",
+		Short:        "Start the model registry server",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			caCert, _ := cmd.Flags().GetString("ca-cert")
 			cert, _ := cmd.Flags().GetString("cert")
 			key, _ := cmd.Flags().GetString("key")
-			repoPath, _ := cmd.Flags().GetString("repo-path")
-			if repoPath == "" {
+			registryPath, _ := cmd.Flags().GetString("registry-path")
+			if registryPath == "" {
 				wd, err := os.Getwd()
 				if err != nil {
 					return err
 				}
-				repoPath = wd
+				registryPath = wd
 			}
 			buildPath, _ := cmd.Flags().GetString("build-path")
 			if buildPath == "" {
-				buildPath = filepath.Join(repoPath, "build")
+				buildPath = filepath.Join(registryPath, "build")
 			}
 			port, _ := cmd.Flags().GetInt16("port")
 			server := northbound.NewServer(&northbound.ServerConfig{
@@ -68,15 +163,15 @@ func getRepoServeCmd() *cobra.Command {
 				Insecure:    true,
 				SecurityCfg: &northbound.SecurityConfig{},
 			})
-			repo := repository.NewRepository(repository.Config{
-				Path: repoPath,
-			})
-			compiler := compiler.NewPluginCompiler(compiler.PluginCompilerConfig{
+			registryConfig := registry.Config{
+				Path: registryPath,
+			}
+			compilerConfig := compiler.PluginCompilerConfig{
 				TemplatePath: "pkg/compiler/templates",
 				BuildPath:    buildPath,
-				OutputPath:   repoPath,
-			})
-			server.AddService(repository.NewService(repo, compiler))
+				OutputPath:   registryPath,
+			}
+			server.AddService(registry.NewService(registry.NewRegistry(registryConfig), compiler.NewPluginCompiler(compilerConfig)))
 
 			c := make(chan os.Signal, 1)
 			signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -85,19 +180,19 @@ func getRepoServeCmd() *cobra.Command {
 				os.Exit(0)
 			}()
 
-			log.Infof("Starting repo server at '%s'", repoPath)
+			log.Infof("Starting registry server at '%s'", registryPath)
 			err := server.Serve(func(address string) {
-				log.Infof("Serving models at '%s' on %s", repoPath, address)
+				log.Infof("Serving models at '%s' on %s", registryPath, address)
 			})
 			if err != nil {
-				log.Errorf("Repo serve failed: %v", err)
+				log.Errorf("Registry serve failed: %v", err)
 				return err
 			}
 			return nil
 		},
 	}
-	cmd.Flags().Int16P("port", "p", 5150, "the repository service port")
-	cmd.Flags().String("repo-path", "", "the path in which to store the repository models")
+	cmd.Flags().Int16P("port", "p", 5150, "the registry service port")
+	cmd.Flags().String("registry-path", "", "the path in which to store the registry models")
 	cmd.Flags().String("build-path", "", "the path in which to store temporary build artifacts")
 	cmd.Flags().String("ca-cert", "", "the CA certificate")
 	cmd.Flags().String("cert", "", "the certificate")
@@ -105,10 +200,10 @@ func getRepoServeCmd() *cobra.Command {
 	return cmd
 }
 
-func getRepoGetCmd() *cobra.Command {
+func getRegistryGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "get",
-		Short:        "Get a model from the repository",
+		Short:        "Get a model from the registry",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			address, _ := cmd.Flags().GetString("address")
@@ -119,7 +214,7 @@ func getRepoGetCmd() *cobra.Command {
 				return err
 			}
 			defer conn.Close()
-			client := configmodel.NewRepositoryServiceClient(conn)
+			client := configmodel.NewConfigModelRegistryServiceClient(conn)
 			request := &configmodel.GetModelRequest{
 				Name:    name,
 				Version: version,
@@ -157,16 +252,16 @@ func getRepoGetCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringP("address", "a", "localhost:5150", "the repository address")
+	cmd.Flags().StringP("address", "a", "localhost:5150", "the registry address")
 	cmd.Flags().StringP("name", "n", "", "the model name")
 	cmd.Flags().StringP("version", "v", "", "the model version")
 	return cmd
 }
 
-func getRepoListCmd() *cobra.Command {
+func getRegistryListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "list",
-		Short:        "List models in the repository",
+		Short:        "List models in the registry",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			address, _ := cmd.Flags().GetString("address")
@@ -175,7 +270,7 @@ func getRepoListCmd() *cobra.Command {
 				return err
 			}
 			defer conn.Close()
-			client := configmodel.NewRepositoryServiceClient(conn)
+			client := configmodel.NewConfigModelRegistryServiceClient(conn)
 			request := &configmodel.ListModelsRequest{}
 			ctx, cancel := newContext()
 			defer cancel()
@@ -212,14 +307,14 @@ func getRepoListCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringP("address", "a", "localhost:5150", "the repository address")
+	cmd.Flags().StringP("address", "a", "localhost:5150", "the registry address")
 	return cmd
 }
 
-func getRepoPushCmd() *cobra.Command {
+func getRegistryPushCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "push",
-		Short:        "Push a model to the repository",
+		Short:        "Push a model to the registry",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			address, _ := cmd.Flags().GetString("address")
@@ -231,7 +326,7 @@ func getRepoPushCmd() *cobra.Command {
 				return err
 			}
 			defer conn.Close()
-			client := configmodel.NewRepositoryServiceClient(conn)
+			client := configmodel.NewConfigModelRegistryServiceClient(conn)
 			model := &configmodel.ConfigModel{
 				Name:    name,
 				Version: version,
@@ -263,17 +358,17 @@ func getRepoPushCmd() *cobra.Command {
 			return err
 		},
 	}
-	cmd.Flags().StringP("address", "a", "localhost:5150", "the repository address")
+	cmd.Flags().StringP("address", "a", "localhost:5150", "the registry address")
 	cmd.Flags().StringP("name", "n", "", "the model name")
 	cmd.Flags().StringP("version", "v", "", "the model version")
 	cmd.Flags().StringToStringP("module", "m", map[string]string{}, "model files")
 	return cmd
 }
 
-func getRepoDeleteCmd() *cobra.Command {
+func getRegistryDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "delete",
-		Short:        "Delete a model from the repository",
+		Short:        "Delete a model from the registry",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			address, _ := cmd.Flags().GetString("address")
@@ -284,7 +379,7 @@ func getRepoDeleteCmd() *cobra.Command {
 				return err
 			}
 			defer conn.Close()
-			client := configmodel.NewRepositoryServiceClient(conn)
+			client := configmodel.NewConfigModelRegistryServiceClient(conn)
 			request := &configmodel.DeleteModelRequest{
 				Name:    name,
 				Version: version,
@@ -295,7 +390,7 @@ func getRepoDeleteCmd() *cobra.Command {
 			return err
 		},
 	}
-	cmd.Flags().StringP("address", "a", "localhost:5150", "the repository address")
+	cmd.Flags().StringP("address", "a", "localhost:5150", "the registry address")
 	cmd.Flags().StringP("name", "n", "", "the model name")
 	cmd.Flags().StringP("version", "v", "", "the model version")
 	return cmd

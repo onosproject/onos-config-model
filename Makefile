@@ -3,7 +3,7 @@ export GO111MODULE=on
 
 .PHONY: build
 
-ONOS_CONFIG_MODELS_VERSION ?= latest
+ONOS_CONFIG_MODEL_VERSION ?= latest
 ONOS_PROTOC_VERSION := v0.6.7
 GOLANG_BUILD_VERSION  := v0.6.3
 
@@ -30,36 +30,38 @@ protos: # @HELP compile the protobuf files (using protoc-go Docker)
 compile-plugins: # @HELP compile standard plugins
 compile-plugins:
 	docker run \
-		-v `pwd`/plugins:/root/plugins \
-		onosproject/config-agent:latest \
-		plugin compile \
+		-v `pwd`/examples:/root/plugins \
+		onosproject/config-model-compiler:latest \
 		--name test \
 		--version 1.0.0 \
-		--module test@2020-11-18=/root/plugins/test/test@2020-11-18.yang \
-		--build-path /root/build/test
+		--module test@2020-11-18=/root/plugins/test@2020-11-18.yang \
+		--build-path /root/build/test \
 		--output-path /root/plugins
 
-serve: # @HELP start the repo server
+serve: # @HELP start the registry server
 serve:
 	docker run -it \
 		-v `pwd`/models:/root/models \
 		-v `pwd`/build/plugins:/root/build \
 		-p 5150:5150 \
-		onosproject/config-agent:latest \
-		repo serve \
-		--repo-path /root/models \
+		onosproject/config-model-registry:latest \
+		--registry-path /root/models \
 		--build-path /root/build
 
 images: # @HELP build Docker images
 images:
-	docker build . -f build/config-agent/Dockerfile \
+	docker build . -f build/config-model-compiler/Dockerfile \
 		--build-arg GOLANG_BUILD_VERSION=${GOLANG_BUILD_VERSION} \
-		-t onosproject/config-agent:${ONOS_CONFIG_MODELS_VERSION}
+		-t onosproject/config-model-compiler:${ONOS_CONFIG_MODEL_VERSION}
+	docker build . -f build/config-model-registry/Dockerfile \
+		--build-arg GOLANG_BUILD_VERSION=${GOLANG_BUILD_VERSION} \
+		-t onosproject/config-model-registry:${ONOS_CONFIG_MODEL_VERSION}
 
 kind: # @HELP build Docker images and add them to the currently configured kind cluster
 kind: images
 	@if [ "`kind get clusters`" = '' ]; then echo "no kind cluster found" && exit 1; fi
-	kind load docker-image onosproject/config-agent:${ONOS_CONFIG_MODELS_VERSION}
+	kind load docker-image onosproject/config-model-compiler:${ONOS_CONFIG_MODEL_VERSION}
+	kind load docker-image onosproject/config-model-registry:${ONOS_CONFIG_MODEL_VERSION}
 
 clean: # @HELP remove all the build artifacts
 	@rm -r `pwd`/models
