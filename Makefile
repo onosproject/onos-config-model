@@ -31,7 +31,7 @@ compile-plugins: # @HELP compile standard plugins
 compile-plugins:
 	docker run \
 		-v `pwd`/examples:/root/plugins \
-		onosproject/config-model-compiler:latest \
+		onosproject/config-model-compiler:go-${ONOS_CONFIG_MODEL_VERSION} \
 		--name test \
 		--version 1.0.0 \
 		--module test@2020-11-18=/root/plugins/test@2020-11-18.yang \
@@ -44,7 +44,7 @@ serve:
 		-v `pwd`/models:/root/models \
 		-v `pwd`/build/plugins:/root/build \
 		-p 5150:5150 \
-		onosproject/config-model-registry:latest \
+		onosproject/config-model-registry:go-${ONOS_CONFIG_MODEL_VERSION} \
 		--registry-path /root/models \
 		--build-path /root/build
 
@@ -52,16 +52,16 @@ images: # @HELP build Docker images
 images:
 	docker build . -f build/config-model-compiler/Dockerfile \
 		--build-arg GOLANG_BUILD_VERSION=${GOLANG_BUILD_VERSION} \
-		-t onosproject/config-model-compiler:${ONOS_CONFIG_MODEL_VERSION}
+		-t onosproject/config-model-compiler:go-${ONOS_CONFIG_MODEL_VERSION}
 	docker build . -f build/config-model-registry/Dockerfile \
 		--build-arg GOLANG_BUILD_VERSION=${GOLANG_BUILD_VERSION} \
-		-t onosproject/config-model-registry:${ONOS_CONFIG_MODEL_VERSION}
+		-t onosproject/config-model-registry:go-${ONOS_CONFIG_MODEL_VERSION}
 
 kind: # @HELP build Docker images and add them to the currently configured kind cluster
 kind: images
 	@if [ "`kind get clusters`" = '' ]; then echo "no kind cluster found" && exit 1; fi
-	kind load docker-image onosproject/config-model-compiler:${ONOS_CONFIG_MODEL_VERSION}
-	kind load docker-image onosproject/config-model-registry:${ONOS_CONFIG_MODEL_VERSION}
+	kind load docker-image onosproject/config-model-compiler:go-${ONOS_CONFIG_MODEL_VERSION}
+	kind load docker-image onosproject/config-model-registry:go-${ONOS_CONFIG_MODEL_VERSION}
 
 clean: # @HELP remove all the build artifacts
 	@rm -r `pwd`/models
