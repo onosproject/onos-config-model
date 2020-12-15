@@ -48,13 +48,20 @@ serve:
 		--registry-path /onos-config-model/models \
 		--build-path /onos-config-model/build
 
-images: # @HELP build Docker images
-images:
+images: config-model-base-image config-model-compiler-image config-model-registry-image
+
+config-model-base-image:
+	docker build . -f build/config-model-base/Dockerfile \
+    	-t onosproject/config-model-base:go-${ONOS_CONFIG_MODEL_VERSION}
+
+config-model-compiler-image:
 	docker build . -f build/config-model-compiler/Dockerfile \
-		--build-arg GOLANG_BUILD_VERSION=${GOLANG_BUILD_VERSION} \
+		--build-arg CONFIG_MODEL_BASE_VERSION=${ONOS_CONFIG_MODEL_VERSION} \
 		-t onosproject/config-model-compiler:go-${ONOS_CONFIG_MODEL_VERSION}
+
+config-model-registry-image:
 	docker build . -f build/config-model-registry/Dockerfile \
-		--build-arg GOLANG_BUILD_VERSION=${GOLANG_BUILD_VERSION} \
+		--build-arg CONFIG_MODEL_BASE_VERSION=${ONOS_CONFIG_MODEL_VERSION} \
 		-t onosproject/config-model-registry:go-${ONOS_CONFIG_MODEL_VERSION}
 
 kind: # @HELP build Docker images and add them to the currently configured kind cluster
