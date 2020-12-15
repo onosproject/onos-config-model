@@ -11,7 +11,7 @@ require (
 	github.com/openconfig/ygot v0.8.12
 	github.com/spf13/cobra v0.0.6
 	github.com/stretchr/testify v1.5.1
-	google.golang.org/grpc v1.31.2
+	google.golang.org/grpc v1.33.2
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 )
