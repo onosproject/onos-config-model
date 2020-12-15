@@ -191,7 +191,7 @@ func getRegistryServeCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().Int16P("port", "p", 5150, "the registry service port")
+	cmd.Flags().Int16P("port", "p", 5151, "the registry service port")
 	cmd.Flags().String("registry-path", "", "the path in which to store the registry models")
 	cmd.Flags().String("build-path", "", "the path in which to store temporary build artifacts")
 	cmd.Flags().String("ca-cert", "", "the CA certificate")
