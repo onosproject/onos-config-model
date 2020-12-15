@@ -37,6 +37,9 @@ type Config struct {
 
 // NewRegistry creates a new config model registry
 func NewRegistry(config Config) *ConfigModelRegistry {
+	if _, err := os.Stat(config.Path); os.IsNotExist(err) {
+		os.MkdirAll(config.Path, os.ModePerm)
+	}
 	return &ConfigModelRegistry{
 		Config: config,
 	}
@@ -66,7 +69,7 @@ func (r *ConfigModelRegistry) AddModel(model model.ConfigModelInfo) error {
 		return err
 	}
 	path := r.getDescriptorFile(model.Name, model.Version)
-	if err := ioutil.WriteFile(path, bytes, 0666); err != nil {
+	if err := ioutil.WriteFile(path, bytes, os.ModePerm); err != nil {
 		log.Errorf("Adding model '%s/%s' failed: %v", model.Name, model.Version, err)
 		return err
 	}

@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"text/template"
 
@@ -58,6 +59,11 @@ const (
 	modelFile        = "model.go"
 	unmarshallerFile = "unmarshaller.go"
 	validatorFile    = "validator.go"
+)
+
+var (
+	_, b, _, _ = runtime.Caller(0)
+	moduleRoot = filepath.Dir(filepath.Dir(filepath.Dir(b)))
 )
 
 // CompilerInfo is the compiler info
@@ -158,15 +164,11 @@ func (c *PluginCompiler) CompilePlugin(model model.ConfigModelInfo) error {
 }
 
 func (c *PluginCompiler) getTemplateInfo(model model.ConfigModelInfo) (TemplateInfo, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return TemplateInfo{}, err
-	}
 	return TemplateInfo{
 		Model: model,
 		Compiler: CompilerInfo{
 			Version: compilerVersion,
-			Root:    wd,
+			Root:    moduleRoot,
 		},
 	}, nil
 }
