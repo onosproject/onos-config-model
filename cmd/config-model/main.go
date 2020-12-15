@@ -108,6 +108,7 @@ func getCompileCmd() *cobra.Command {
 
 			config := compiler.PluginCompilerConfig{
 				TemplatePath: "pkg/compiler/templates",
+				BuildPath:    buildPath,
 				OutputPath:   outputPath,
 			}
 			if err := compiler.CompilePlugin(modelInfo, config); err != nil {

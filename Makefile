@@ -30,23 +30,23 @@ protos: # @HELP compile the protobuf files (using protoc-go Docker)
 compile-plugins: # @HELP compile standard plugins
 compile-plugins:
 	docker run \
-		-v `pwd`/examples:/root/plugins \
+		-v `pwd`/examples:/onos-config-model/plugins \
 		onosproject/config-model-compiler:go-${ONOS_CONFIG_MODEL_VERSION} \
 		--name test \
 		--version 1.0.0 \
-		--module test@2020-11-18=/root/plugins/test@2020-11-18.yang \
-		--build-path /root/build/test \
-		--output-path /root/plugins
+		--module test@2020-11-18=/onos-config-model/plugins/test@2020-11-18.yang \
+		--build-path /onos-config-model/build/test \
+		--output-path /onos-config-model/plugins
 
 serve: # @HELP start the registry server
 serve:
 	docker run -it \
-		-v `pwd`/models:/root/models \
-		-v `pwd`/build/plugins:/root/build \
-		-p 5150:5150 \
+		-v `pwd`/examples:/onos-config-model/models \
+		-v `pwd`/build/plugins:/onos-config-model/build \
+		-p 5151:5151 \
 		onosproject/config-model-registry:go-${ONOS_CONFIG_MODEL_VERSION} \
-		--registry-path /root/models \
-		--build-path /root/build
+		--registry-path /onos-config-model/models \
+		--build-path /onos-config-model/build
 
 images: # @HELP build Docker images
 images:
