@@ -25,7 +25,7 @@ import (
 
 func TestCompiler(t *testing.T) {
 	config := CompilerConfig{
-		TemplatePath: filepath.Join(moduleRoot, "pkg", "compiler", "templates"),
+		TemplatePath: filepath.Join(moduleRoot, "pkg", "model", "plugin", "compiler", "templates"),
 		BuildPath:    filepath.Join(moduleRoot, "build", "_output"),
 		OutputPath:   filepath.Join(moduleRoot, "test", "_output"),
 	}
