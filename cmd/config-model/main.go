@@ -20,10 +20,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/onosproject/onos-config-model-go/api/onos/configmodel"
-	"github.com/onosproject/onos-config-model-go/pkg/compiler"
+	configmodelapi "github.com/onosproject/onos-config-model-go/api/onos/configmodel"
 	"github.com/onosproject/onos-config-model-go/pkg/model"
-	"github.com/onosproject/onos-config-model-go/pkg/registry"
+	"github.com/onosproject/onos-config-model-go/pkg/model/plugin/compiler"
+	"github.com/onosproject/onos-config-model-go/pkg/model/registry"
 	"github.com/onosproject/onos-lib-go/pkg/certs"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	"github.com/onosproject/onos-lib-go/pkg/northbound"
@@ -79,13 +79,13 @@ func getCompileCmd() *cobra.Command {
 				buildPath = filepath.Join(outputPath, "build")
 			}
 
-			modelInfo := model.ConfigModelInfo{
-				Name:    model.Name(name),
-				Version: model.Version(version),
-				Modules: []model.ConfigModuleInfo{},
-				Plugin: model.ConfigPluginInfo{
-					Name:    model.Name(name),
-					Version: model.Version(version),
+			modelInfo := configmodel.ModelInfo{
+				Name:    configmodel.Name(name),
+				Version: configmodel.Version(version),
+				Modules: []configmodel.ModuleInfo{},
+				Plugin: configmodel.PluginInfo{
+					Name:    configmodel.Name(name),
+					Version: configmodel.Version(version),
 					File:    fmt.Sprintf("%s-%s.so", name, version),
 				},
 			}
@@ -99,26 +99,26 @@ func getCompileCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				modelInfo.Modules = append(modelInfo.Modules, model.ConfigModuleInfo{
-					Name:    model.Name(name),
-					Version: model.Version(version),
+				modelInfo.Modules = append(modelInfo.Modules, configmodel.ModuleInfo{
+					Name:    configmodel.Name(name),
+					Version: configmodel.Version(version),
 					Data:    data,
 				})
 			}
 
-			config := compiler.PluginCompilerConfig{
-				TemplatePath: "pkg/compiler/templates",
+			config := plugincompiler.CompilerConfig{
+				TemplatePath: "pkg/model/plugin/compiler/templates",
 				BuildPath:    buildPath,
 				OutputPath:   outputPath,
 			}
-			if err := compiler.CompilePlugin(modelInfo, config); err != nil {
+			if err := plugincompiler.CompilePlugin(modelInfo, config); err != nil {
 				return err
 			}
 
-			registryConfig := registry.Config{
+			registryConfig := modelregistry.Config{
 				Path: outputPath,
 			}
-			registry := registry.NewRegistry(registryConfig)
+			registry := modelregistry.NewConfigModelRegistry(registryConfig)
 			return registry.AddModel(modelInfo)
 		},
 	}
@@ -172,15 +172,15 @@ func getRegistryServeCmd() *cobra.Command {
 				Insecure:    true,
 				SecurityCfg: &northbound.SecurityConfig{},
 			})
-			registryConfig := registry.Config{
+			registryConfig := modelregistry.Config{
 				Path: registryPath,
 			}
-			compilerConfig := compiler.PluginCompilerConfig{
-				TemplatePath: "pkg/compiler/templates",
+			compilerConfig := plugincompiler.CompilerConfig{
+				TemplatePath: "pkg/model/plugin/compiler/templates",
 				BuildPath:    buildPath,
 				OutputPath:   registryPath,
 			}
-			server.AddService(registry.NewService(registry.NewRegistry(registryConfig), compiler.NewPluginCompiler(compilerConfig)))
+			server.AddService(modelregistry.NewService(modelregistry.NewConfigModelRegistry(registryConfig), plugincompiler.NewPluginCompiler(compilerConfig)))
 
 			c := make(chan os.Signal, 1)
 			signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -223,8 +223,8 @@ func getRegistryGetCmd() *cobra.Command {
 				return err
 			}
 			defer conn.Close()
-			client := configmodel.NewConfigModelRegistryServiceClient(conn)
-			request := &configmodel.GetModelRequest{
+			client := configmodelapi.NewConfigModelRegistryServiceClient(conn)
+			request := &configmodelapi.GetModelRequest{
 				Name:    name,
 				Version: version,
 			}
@@ -234,22 +234,22 @@ func getRegistryGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var moduleInfos []model.ConfigModuleInfo
+			var moduleInfos []configmodel.ModuleInfo
 			for _, module := range response.Model.Modules {
-				moduleInfos = append(moduleInfos, model.ConfigModuleInfo{
-					Name:         model.Name(module.Name),
+				moduleInfos = append(moduleInfos, configmodel.ModuleInfo{
+					Name:         configmodel.Name(module.Name),
 					Organization: module.Organization,
-					Version:      model.Version(module.Version),
+					Version:      configmodel.Version(module.Version),
 					Data:         module.Data,
 				})
 			}
-			modelInfo := model.ConfigModelInfo{
-				Name:    model.Name(response.Model.Name),
-				Version: model.Version(response.Model.Version),
+			modelInfo := configmodel.ModelInfo{
+				Name:    configmodel.Name(response.Model.Name),
+				Version: configmodel.Version(response.Model.Version),
 				Modules: moduleInfos,
-				Plugin: model.ConfigPluginInfo{
-					Name:    model.Name(response.Model.Name),
-					Version: model.Version(response.Model.Version),
+				Plugin: configmodel.PluginInfo{
+					Name:    configmodel.Name(response.Model.Name),
+					Version: configmodel.Version(response.Model.Version),
 					File:    fmt.Sprintf("%s-%s.so", response.Model.Name, response.Model.Version),
 				},
 			}
@@ -279,8 +279,8 @@ func getRegistryListCmd() *cobra.Command {
 				return err
 			}
 			defer conn.Close()
-			client := configmodel.NewConfigModelRegistryServiceClient(conn)
-			request := &configmodel.ListModelsRequest{}
+			client := configmodelapi.NewConfigModelRegistryServiceClient(conn)
+			request := &configmodelapi.ListModelsRequest{}
 			ctx, cancel := newContext()
 			defer cancel()
 			response, err := client.ListModels(ctx, request)
@@ -288,22 +288,22 @@ func getRegistryListCmd() *cobra.Command {
 				return err
 			}
 			for _, modelInfo := range response.Models {
-				var moduleInfos []model.ConfigModuleInfo
+				var moduleInfos []configmodel.ModuleInfo
 				for _, module := range modelInfo.Modules {
-					moduleInfos = append(moduleInfos, model.ConfigModuleInfo{
-						Name:         model.Name(module.Name),
+					moduleInfos = append(moduleInfos, configmodel.ModuleInfo{
+						Name:         configmodel.Name(module.Name),
 						Organization: module.Organization,
-						Version:      model.Version(module.Version),
+						Version:      configmodel.Version(module.Version),
 						Data:         module.Data,
 					})
 				}
-				model := model.ConfigModelInfo{
-					Name:    model.Name(modelInfo.Name),
-					Version: model.Version(modelInfo.Version),
+				model := configmodel.ModelInfo{
+					Name:    configmodel.Name(modelInfo.Name),
+					Version: configmodel.Version(modelInfo.Version),
 					Modules: moduleInfos,
-					Plugin: model.ConfigPluginInfo{
-						Name:    model.Name(modelInfo.Name),
-						Version: model.Version(modelInfo.Version),
+					Plugin: configmodel.PluginInfo{
+						Name:    configmodel.Name(modelInfo.Name),
+						Version: configmodel.Version(modelInfo.Version),
 						File:    fmt.Sprintf("%s-%s.so", modelInfo.Name, modelInfo.Version),
 					},
 				}
@@ -335,11 +335,11 @@ func getRegistryPushCmd() *cobra.Command {
 				return err
 			}
 			defer conn.Close()
-			client := configmodel.NewConfigModelRegistryServiceClient(conn)
-			model := &configmodel.ConfigModel{
+			client := configmodelapi.NewConfigModelRegistryServiceClient(conn)
+			model := &configmodelapi.ConfigModel{
 				Name:    name,
 				Version: version,
-				Modules: []*configmodel.ConfigModule{},
+				Modules: []*configmodelapi.ConfigModule{},
 			}
 			for nameVersion, module := range modules {
 				names := strings.Split(nameVersion, "@")
@@ -351,14 +351,14 @@ func getRegistryPushCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				model.Modules = append(model.Modules, &configmodel.ConfigModule{
+				model.Modules = append(model.Modules, &configmodelapi.ConfigModule{
 					Name:    name,
 					Version: version,
 					Data:    data,
 				})
 			}
 
-			request := &configmodel.PushModelRequest{
+			request := &configmodelapi.PushModelRequest{
 				Model: model,
 			}
 			ctx, cancel := newContext()
@@ -388,8 +388,8 @@ func getRegistryDeleteCmd() *cobra.Command {
 				return err
 			}
 			defer conn.Close()
-			client := configmodel.NewConfigModelRegistryServiceClient(conn)
-			request := &configmodel.DeleteModelRequest{
+			client := configmodelapi.NewConfigModelRegistryServiceClient(conn)
+			request := &configmodelapi.DeleteModelRequest{
 				Name:    name,
 				Version: version,
 			}

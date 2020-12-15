@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compiler
+package plugincompiler
 
 import (
 	"github.com/onosproject/onos-config-model-go/pkg/model"
+	"github.com/onosproject/onos-config-model-go/pkg/model/plugin"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"path/filepath"
@@ -23,7 +24,7 @@ import (
 )
 
 func TestCompiler(t *testing.T) {
-	config := PluginCompilerConfig{
+	config := CompilerConfig{
 		TemplatePath: filepath.Join(moduleRoot, "pkg", "compiler", "templates"),
 		BuildPath:    filepath.Join(moduleRoot, "build", "_output"),
 		OutputPath:   filepath.Join(moduleRoot, "test", "_output"),
@@ -33,10 +34,10 @@ func TestCompiler(t *testing.T) {
 	bytes, err := ioutil.ReadFile(filepath.Join(moduleRoot, "test", "test@2020-11-18.yang"))
 	assert.NoError(t, err)
 
-	modelInfo := model.ConfigModelInfo{
+	modelInfo := configmodel.ModelInfo{
 		Name:    "test",
 		Version: "1.0.0",
-		Modules: []model.ConfigModuleInfo{
+		Modules: []configmodel.ModuleInfo{
 			{
 				Name:         "test",
 				Organization: "ONF",
@@ -44,7 +45,7 @@ func TestCompiler(t *testing.T) {
 				Data:         bytes,
 			},
 		},
-		Plugin: model.ConfigPluginInfo{
+		Plugin: configmodel.PluginInfo{
 			Name:    "test",
 			Version: "1.0.0",
 			File:    "test@1.0.0.so",
@@ -53,7 +54,7 @@ func TestCompiler(t *testing.T) {
 	err = compiler.CompilePlugin(modelInfo)
 	assert.NoError(t, err)
 
-	plugin, err := model.Load(filepath.Join(moduleRoot, "test", "_output", "test@1.0.0.so"))
+	plugin, err := modelplugin.Load(filepath.Join(moduleRoot, "test", "_output", "test@1.0.0.so"))
 	assert.NoError(t, err)
 	assert.NotNil(t, plugin)
 }

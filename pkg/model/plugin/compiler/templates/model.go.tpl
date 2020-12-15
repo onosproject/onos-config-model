@@ -1,4 +1,4 @@
-package model
+package configmodel
 
 import (
 	"github.com/openconfig/gnmi/proto/gnmi"
@@ -8,8 +8,8 @@ import (
 )
 
 const (
-    modelName    model.Name    = {{ .Model.Name | quote }}
-    modelVersion model.Version = {{ .Model.Version | quote }}
+    modelName    configmodel.Name    = {{ .Model.Name | quote }}
+    modelVersion configmodel.Version = {{ .Model.Version | quote }}
 )
 
 var modelData = []*gnmi.ModelData{
@@ -19,16 +19,16 @@ var modelData = []*gnmi.ModelData{
 	{{- end }}
 }
 
-var ConfigModelInfo = model.ConfigModelInfo{
-    Name: model.Name({{ .Model.Name | quote }}),
-    Version: model.Version({{ .Model.Version | quote }}),
+var ModelInfo = configmodel.ModelInfo{
+    Name: configmodel.Name({{ .Model.Name | quote }}),
+    Version: configmodel.Version({{ .Model.Version | quote }}),
 }
 
 // ConfigModel defines the config model for {{ .Model.Name }} {{ .Model.Version }}
 type ConfigModel struct{}
 
-func (m ConfigModel) Info() model.ConfigModelInfo {
-    return ConfigModelInfo
+func (m ConfigModel) Info() configmodel.ModelInfo {
+    return ModelInfo
 }
 
 func (m ConfigModel) Data() []*gnmi.ModelData {
@@ -39,16 +39,16 @@ func (m ConfigModel) Schema() (map[string]*yang.Entry, error) {
 	return UnzipSchema()
 }
 
-func (m ConfigModel) GetStateMode() model.GetStateMode {
-    return model.GetStateNone
+func (m ConfigModel) GetStateMode() configmodel.GetStateMode {
+    return configmodel.GetStateNone
 }
 
-func (m ConfigModel) Unmarshaller() model.ConfigModelUnmarshaller {
-    return ConfigModelUnmarshaller{}
+func (m ConfigModel) Unmarshaller() configmodel.Unmarshaller {
+    return Unmarshaller{}
 }
 
-func (m ConfigModel) Validator() model.ConfigModelValidator {
-    return ConfigModelValidator{}
+func (m ConfigModel) Validator() configmodel.Validator {
+    return Validator{}
 }
 
-var _ model.ConfigModel = ConfigModel{}
+var _ configmodel.ConfigModel = ConfigModel{}

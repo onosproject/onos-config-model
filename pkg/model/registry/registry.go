@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package registry
+package modelregistry
 
 import (
 	"encoding/json"
@@ -35,8 +35,8 @@ type Config struct {
 	Path string `yaml:"path" json:"path"`
 }
 
-// NewRegistry creates a new config model registry
-func NewRegistry(config Config) *ConfigModelRegistry {
+// NewConfigModelRegistry creates a new config model registry
+func NewConfigModelRegistry(config Config) *ConfigModelRegistry {
 	if _, err := os.Stat(config.Path); os.IsNotExist(err) {
 		os.MkdirAll(config.Path, os.ModePerm)
 	}
@@ -51,17 +51,17 @@ type ConfigModelRegistry struct {
 }
 
 // GetModel gets a model by name and version
-func (r *ConfigModelRegistry) GetModel(name model.Name, version model.Version) (model.ConfigModelInfo, error) {
+func (r *ConfigModelRegistry) GetModel(name configmodel.Name, version configmodel.Version) (configmodel.ModelInfo, error) {
 	return loadModel(r.getDescriptorFile(name, version))
 }
 
 // ListModels lists models in the registry
-func (r *ConfigModelRegistry) ListModels() ([]model.ConfigModelInfo, error) {
+func (r *ConfigModelRegistry) ListModels() ([]configmodel.ModelInfo, error) {
 	return loadModels(r.Config.Path)
 }
 
 // AddModel adds a model to the registry
-func (r *ConfigModelRegistry) AddModel(model model.ConfigModelInfo) error {
+func (r *ConfigModelRegistry) AddModel(model configmodel.ModelInfo) error {
 	log.Debugf("Adding model '%s/%s' to registry '%s'", model.Name, model.Version, r.Config.Path)
 	bytes, err := json.MarshalIndent(model, "", "  ")
 	if err != nil {
@@ -78,7 +78,7 @@ func (r *ConfigModelRegistry) AddModel(model model.ConfigModelInfo) error {
 }
 
 // RemoveModel removes a model from the registry
-func (r *ConfigModelRegistry) RemoveModel(name model.Name, version model.Version) error {
+func (r *ConfigModelRegistry) RemoveModel(name configmodel.Name, version configmodel.Version) error {
 	log.Debugf("Deleting model '%s/%s' from registry '%s'", name, version, r.Config.Path)
 	path := r.getDescriptorFile(name, version)
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -91,11 +91,11 @@ func (r *ConfigModelRegistry) RemoveModel(name model.Name, version model.Version
 	return nil
 }
 
-func (r *ConfigModelRegistry) getDescriptorFile(name model.Name, version model.Version) string {
+func (r *ConfigModelRegistry) getDescriptorFile(name configmodel.Name, version configmodel.Version) string {
 	return filepath.Join(r.Config.Path, fmt.Sprintf("%s-%s.json", name, version))
 }
 
-func loadModels(path string) ([]model.ConfigModelInfo, error) {
+func loadModels(path string) ([]configmodel.ModelInfo, error) {
 	var modelFiles []string
 	err := filepath.Walk(path, func(file string, info os.FileInfo, err error) error {
 		if err == nil && strings.HasSuffix(file, jsonExt) {
@@ -107,7 +107,7 @@ func loadModels(path string) ([]model.ConfigModelInfo, error) {
 		return nil, err
 	}
 
-	var models []model.ConfigModelInfo
+	var models []configmodel.ModelInfo
 	for _, file := range modelFiles {
 		model, err := loadModel(file)
 		if err != nil {
@@ -118,23 +118,23 @@ func loadModels(path string) ([]model.ConfigModelInfo, error) {
 	return models, nil
 }
 
-func loadModel(path string) (model.ConfigModelInfo, error) {
+func loadModel(path string) (configmodel.ModelInfo, error) {
 	log.Debugf("Loading model definition '%s'", path)
 	bytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		log.Errorf("Failed loading model '%s': %v", path, err)
-		return model.ConfigModelInfo{}, err
+		return configmodel.ModelInfo{}, err
 	}
-	modelInfo := model.ConfigModelInfo{}
+	modelInfo := configmodel.ModelInfo{}
 	err = json.Unmarshal(bytes, &modelInfo)
 	if err != nil {
 		log.Errorf("Failed decoding model definition '%s': %v", path, err)
-		return model.ConfigModelInfo{}, err
+		return configmodel.ModelInfo{}, err
 	}
 	if modelInfo.Name == "" || modelInfo.Version == "" {
 		err = errors.NewInvalid("%s is not a valid model descriptor", path)
 		log.Errorf("Failed decoding model definition '%s': %v", path, err)
-		return model.ConfigModelInfo{}, err
+		return configmodel.ModelInfo{}, err
 	}
 	log.Infof("Loaded model '%s': %s", path, bytes)
 	return modelInfo, nil

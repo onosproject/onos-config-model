@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package compiler
+package plugincompiler
 
 import (
 	"fmt"
@@ -63,7 +63,7 @@ const (
 
 var (
 	_, b, _, _ = runtime.Caller(0)
-	moduleRoot = filepath.Dir(filepath.Dir(filepath.Dir(b)))
+	moduleRoot = filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(b)))))
 )
 
 // CompilerInfo is the compiler info
@@ -74,34 +74,34 @@ type CompilerInfo struct {
 
 // TemplateInfo provides all the variables for templates
 type TemplateInfo struct {
-	Model    model.ConfigModelInfo
+	Model    configmodel.ModelInfo
 	Compiler CompilerInfo
 }
 
 // CompilePlugin compiles a model plugin to the given path
-func CompilePlugin(model model.ConfigModelInfo, config PluginCompilerConfig) error {
+func CompilePlugin(model configmodel.ModelInfo, config CompilerConfig) error {
 	return NewPluginCompiler(config).CompilePlugin(model)
 }
 
-// PluginCompilerConfig is a plugin compiler configuration
-type PluginCompilerConfig struct {
+// CompilerConfig is a plugin compiler configuration
+type CompilerConfig struct {
 	TemplatePath string
 	BuildPath    string
 	OutputPath   string
 }
 
 // NewPluginCompiler creates a new model plugin compiler
-func NewPluginCompiler(config PluginCompilerConfig) *PluginCompiler {
+func NewPluginCompiler(config CompilerConfig) *PluginCompiler {
 	return &PluginCompiler{config}
 }
 
 // PluginCompiler is a model plugin compiler
 type PluginCompiler struct {
-	Config PluginCompilerConfig
+	Config CompilerConfig
 }
 
 // CompilePlugin compiles a model plugin to the given path
-func (c *PluginCompiler) CompilePlugin(model model.ConfigModelInfo) error {
+func (c *PluginCompiler) CompilePlugin(model configmodel.ModelInfo) error {
 	log.Infof("Compiling ConfigModel '%s/%s' to '%s'", model.Name, model.Version, c.getPluginPath(model))
 
 	// Ensure the build directory exists
@@ -163,7 +163,7 @@ func (c *PluginCompiler) CompilePlugin(model model.ConfigModelInfo) error {
 	return nil
 }
 
-func (c *PluginCompiler) getTemplateInfo(model model.ConfigModelInfo) (TemplateInfo, error) {
+func (c *PluginCompiler) getTemplateInfo(model configmodel.ModelInfo) (TemplateInfo, error) {
 	return TemplateInfo{
 		Model: model,
 		Compiler: CompilerInfo{
@@ -173,11 +173,11 @@ func (c *PluginCompiler) getTemplateInfo(model model.ConfigModelInfo) (TemplateI
 	}, nil
 }
 
-func (c *PluginCompiler) getPluginPath(model model.ConfigModelInfo) string {
+func (c *PluginCompiler) getPluginPath(model configmodel.ModelInfo) string {
 	return filepath.Join(c.Config.OutputPath, model.Plugin.File)
 }
 
-func (c *PluginCompiler) compilePlugin(model model.ConfigModelInfo) error {
+func (c *PluginCompiler) compilePlugin(model configmodel.ModelInfo) error {
 	log.Infof("Compiling plugin '%s'", c.getPluginPath(model))
 	cmd := exec.Command("go", "build", "-o", c.getPluginPath(model), "-buildmode=plugin", "github.com/onosproject/onos-config-model-go/"+c.getSafeQualifiedName(model))
 	cmd.Dir = c.getModuleDir(model)
@@ -191,14 +191,14 @@ func (c *PluginCompiler) compilePlugin(model model.ConfigModelInfo) error {
 	return nil
 }
 
-func (c *PluginCompiler) cleanBuild(model model.ConfigModelInfo) error {
+func (c *PluginCompiler) cleanBuild(model configmodel.ModelInfo) error {
 	if _, err := os.Stat(c.getModuleDir(model)); err == nil {
 		return os.RemoveAll(c.getModuleDir(model))
 	}
 	return nil
 }
 
-func (c *PluginCompiler) copyModules(model model.ConfigModelInfo) error {
+func (c *PluginCompiler) copyModules(model configmodel.ModelInfo) error {
 	for _, module := range model.Modules {
 		if err := c.copyModule(model, module); err != nil {
 			return err
@@ -207,7 +207,7 @@ func (c *PluginCompiler) copyModules(model model.ConfigModelInfo) error {
 	return nil
 }
 
-func (c *PluginCompiler) copyModule(model model.ConfigModelInfo, module model.ConfigModuleInfo) error {
+func (c *PluginCompiler) copyModule(model configmodel.ModelInfo, module configmodel.ModuleInfo) error {
 	path := c.getYangPath(model, module)
 	log.Debugf("Copying YANG module '%s/%s' to '%s'", module.Name, module.Version, path)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -220,7 +220,7 @@ func (c *PluginCompiler) copyModule(model model.ConfigModelInfo, module model.Co
 	return nil
 }
 
-func (c *PluginCompiler) generateYangBindings(model model.ConfigModelInfo) error {
+func (c *PluginCompiler) generateYangBindings(model configmodel.ModelInfo) error {
 	path := filepath.Join(c.getModelPath(model, "generated.go"))
 	log.Debugf("Generating YANG bindings '%s'", path)
 	args := []string{
@@ -228,7 +228,7 @@ func (c *PluginCompiler) generateYangBindings(model model.ConfigModelInfo) error
 		"github.com/openconfig/ygot/generator",
 		"-path=yang",
 		"-output_file=model/generated.go",
-		"-package_name=model",
+		"-package_name=configmodel",
 		"-generate_fakeroot",
 	}
 
@@ -252,7 +252,7 @@ func (c *PluginCompiler) getTemplatePath(name string) string {
 	return filepath.Join(c.Config.TemplatePath, name)
 }
 
-func (c *PluginCompiler) generateMain(model model.ConfigModelInfo) error {
+func (c *PluginCompiler) generateMain(model configmodel.ModelInfo) error {
 	info, err := c.getTemplateInfo(model)
 	if err != nil {
 		return err
@@ -260,7 +260,7 @@ func (c *PluginCompiler) generateMain(model model.ConfigModelInfo) error {
 	return applyTemplate(mainTemplate, c.getTemplatePath(mainTemplate), c.getModulePath(model, mainFile), info)
 }
 
-func (c *PluginCompiler) generateTemplate(model model.ConfigModelInfo, template, inPath, outPath string) error {
+func (c *PluginCompiler) generateTemplate(model configmodel.ModelInfo, template, inPath, outPath string) error {
 	log.Debugf("Generating '%s'", outPath)
 	info, err := c.getTemplateInfo(model)
 	if err != nil {
@@ -274,55 +274,55 @@ func (c *PluginCompiler) generateTemplate(model model.ConfigModelInfo, template,
 	return nil
 }
 
-func (c *PluginCompiler) generateMod(model model.ConfigModelInfo) error {
+func (c *PluginCompiler) generateMod(model configmodel.ModelInfo) error {
 	return c.generateTemplate(model, modTemplate, c.getTemplatePath(modTemplate), c.getModulePath(model, modFile))
 }
 
-func (c *PluginCompiler) generateModelPlugin(model model.ConfigModelInfo) error {
+func (c *PluginCompiler) generateModelPlugin(model configmodel.ModelInfo) error {
 	return c.generateTemplate(model, pluginTemplate, c.getTemplatePath(pluginTemplate), c.getModelPath(model, pluginFile))
 }
 
-func (c *PluginCompiler) generateConfigModel(model model.ConfigModelInfo) error {
+func (c *PluginCompiler) generateConfigModel(model configmodel.ModelInfo) error {
 	return c.generateTemplate(model, modelTemplate, c.getTemplatePath(modelTemplate), c.getModelPath(model, modelFile))
 }
 
-func (c *PluginCompiler) generateUnmarshaller(model model.ConfigModelInfo) error {
+func (c *PluginCompiler) generateUnmarshaller(model configmodel.ModelInfo) error {
 	return c.generateTemplate(model, unmarshallerTemplate, c.getTemplatePath(unmarshallerTemplate), c.getModelPath(model, unmarshallerFile))
 }
 
-func (c *PluginCompiler) generateValidator(model model.ConfigModelInfo) error {
+func (c *PluginCompiler) generateValidator(model configmodel.ModelInfo) error {
 	return c.generateTemplate(model, validatorTemplate, c.getTemplatePath(validatorTemplate), c.getModelPath(model, validatorFile))
 }
 
-func (c *PluginCompiler) getModuleDir(model model.ConfigModelInfo) string {
+func (c *PluginCompiler) getModuleDir(model configmodel.ModelInfo) string {
 	return filepath.Join(c.Config.BuildPath, c.getSafeQualifiedName(model))
 }
 
-func (c *PluginCompiler) getModulePath(model model.ConfigModelInfo, name string) string {
+func (c *PluginCompiler) getModulePath(model configmodel.ModelInfo, name string) string {
 	return filepath.Join(c.getModuleDir(model), name)
 }
 
-func (c *PluginCompiler) getModelDir(model model.ConfigModelInfo) string {
+func (c *PluginCompiler) getModelDir(model configmodel.ModelInfo) string {
 	return filepath.Join(c.getModuleDir(model), modelDir)
 }
 
-func (c *PluginCompiler) getModelPath(model model.ConfigModelInfo, name string) string {
+func (c *PluginCompiler) getModelPath(model configmodel.ModelInfo, name string) string {
 	return filepath.Join(c.getModelDir(model), name)
 }
 
-func (c *PluginCompiler) getYangDir(model model.ConfigModelInfo) string {
+func (c *PluginCompiler) getYangDir(model configmodel.ModelInfo) string {
 	return filepath.Join(c.getModuleDir(model), yangDir)
 }
 
-func (c *PluginCompiler) getYangPath(model model.ConfigModelInfo, module model.ConfigModuleInfo) string {
+func (c *PluginCompiler) getYangPath(model configmodel.ModelInfo, module configmodel.ModuleInfo) string {
 	return filepath.Join(c.getYangDir(model), c.getYangFile(module))
 }
 
-func (c *PluginCompiler) getYangFile(module model.ConfigModuleInfo) string {
+func (c *PluginCompiler) getYangFile(module configmodel.ModuleInfo) string {
 	return fmt.Sprintf("%s@%s.yang", module.Name, module.Version)
 }
 
-func (c *PluginCompiler) getSafeQualifiedName(model model.ConfigModelInfo) string {
+func (c *PluginCompiler) getSafeQualifiedName(model configmodel.ModelInfo) string {
 	return strings.ReplaceAll(fmt.Sprintf("%s_%s", model.Name, model.Version), ".", "_")
 }
 

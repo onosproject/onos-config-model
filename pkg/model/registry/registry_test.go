@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package registry
+package modelregistry
 
 import (
 	"github.com/onosproject/onos-config-model-go/pkg/model"
@@ -27,16 +27,16 @@ func TestRegistry(t *testing.T) {
 	config := Config{
 		Path: dir,
 	}
-	registry := NewRegistry(config)
+	registry := NewConfigModelRegistry(config)
 
 	models, err := registry.ListModels()
 	assert.NoError(t, err)
 	assert.Len(t, models, 0)
 
-	modelInfo := model.ConfigModelInfo{
+	modelInfo := configmodel.ModelInfo{
 		Name:    "foo",
 		Version: "1.0.0",
-		Modules: []model.ConfigModuleInfo{
+		Modules: []configmodel.ModuleInfo{
 			{
 				Name:         "bar",
 				Organization: "ONF",
@@ -44,7 +44,7 @@ func TestRegistry(t *testing.T) {
 				Data:         []byte("Hello world!"),
 			},
 		},
-		Plugin: model.ConfigPluginInfo{
+		Plugin: configmodel.PluginInfo{
 			Name:    "foo",
 			Version: "1.0.0",
 			File:    "foo@1.0.0.so",

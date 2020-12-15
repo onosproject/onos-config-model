@@ -12,24 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package model
+package modelplugin
 
 import (
+	"github.com/onosproject/onos-config-model-go/pkg/model"
 	"github.com/onosproject/onos-lib-go/pkg/errors"
 	"path/filepath"
 	"plugin"
 )
 
-const pluginSymbol = "ConfigPlugin"
+const pluginSymbol = "ConfigModelPlugin"
 
-// ConfigPlugin provides a config model
-type ConfigPlugin interface {
+// ConfigModelPlugin provides a config model
+type ConfigModelPlugin interface {
 	// Model returns the config model
-	Model() ConfigModel
+	Model() configmodel.ConfigModel
 }
 
 // Load loads the plugin at the given path
-func Load(path string) (ConfigModel, error) {
+func Load(path string) (ConfigModelPlugin, error) {
 	module, err := plugin.Open(path)
 	if err != nil {
 		return nil, err
@@ -38,9 +39,9 @@ func Load(path string) (ConfigModel, error) {
 	if err != nil {
 		return nil, err
 	}
-	plugin, ok := symbol.(ConfigPlugin)
+	plugin, ok := symbol.(ConfigModelPlugin)
 	if !ok {
-		return nil, errors.NewInvalid("symbol loaded from module %s is not a ConfigPlugin", filepath.Base(path))
+		return nil, errors.NewInvalid("symbol loaded from module %s is not a %s", filepath.Base(path), pluginSymbol)
 	}
-	return plugin.Model(), nil
+	return plugin, nil
 }

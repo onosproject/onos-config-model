@@ -1,4 +1,4 @@
-package model
+package configmodel
 
 import (
 	_ "github.com/golang/protobuf/proto"
@@ -10,13 +10,14 @@ import (
 	_ "github.com/openconfig/ygot/ytypes"
 
 	"github.com/onosproject/onos-config-model-go/pkg/model"
+	"github.com/onosproject/onos-config-model-go/pkg/model/plugin"
 )
 
-// ConfigPlugin defines the model plugin for {{ .Model.Name }} {{ .Model.Version }}
-type ConfigPlugin struct{}
+// ConfigModelPlugin defines the model plugin for {{ .Model.Name }} {{ .Model.Version }}
+type ConfigModelPlugin struct{}
 
-func (p ConfigPlugin) Model() model.ConfigModel {
+func (p ConfigModelPlugin) Model() configmodel.ConfigModel {
     return ConfigModel{}
 }
 
-var _ model.ConfigPlugin = ConfigPlugin{}
+var _ modelplugin.ConfigModelPlugin = ConfigModelPlugin{}

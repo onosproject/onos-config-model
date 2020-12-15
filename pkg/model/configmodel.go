@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package model
+package configmodel
 
 import (
 	"github.com/openconfig/gnmi/proto/gnmi"
@@ -45,24 +45,24 @@ const (
 	GetStateExplicitRoPathsExpandWildcards
 )
 
-// ConfigModelInfo is config model info
-type ConfigModelInfo struct {
-	Name    Name               `json:"name"`
-	Version Version            `json:"version"`
-	Modules []ConfigModuleInfo `json:"modules"`
-	Plugin  ConfigPluginInfo   `json:"plugin"`
+// ModelInfo is config model info
+type ModelInfo struct {
+	Name    Name         `json:"name"`
+	Version Version      `json:"version"`
+	Modules []ModuleInfo `json:"modules"`
+	Plugin  PluginInfo   `json:"plugin"`
 }
 
-// ConfigModuleInfo is a config module info
-type ConfigModuleInfo struct {
+// ModuleInfo is a config module info
+type ModuleInfo struct {
 	Name         Name    `json:"name"`
 	Organization string  `json:"organization"`
 	Version      Version `json:"version"`
 	Data         []byte  `json:"data"`
 }
 
-// ConfigPluginInfo is config model plugin info
-type ConfigPluginInfo struct {
+// PluginInfo is config model plugin info
+type PluginInfo struct {
 	Name    Name    `json:"name"`
 	Version Version `json:"version"`
 	File    string  `json:"file"`
@@ -71,7 +71,7 @@ type ConfigPluginInfo struct {
 // ConfigModel is a configuration model data
 type ConfigModel interface {
 	// Info returns the config model info
-	Info() ConfigModelInfo
+	Info() ModelInfo
 
 	// Data returns the config model data
 	Data() []*gnmi.ModelData
@@ -82,21 +82,21 @@ type ConfigModel interface {
 	// GetStateMode returns the get state mode
 	GetStateMode() GetStateMode
 
-	// ConfigModelUnmarshaller returns the config model unmarshaller
-	Unmarshaller() ConfigModelUnmarshaller
+	// Unmarshaller returns the config model unmarshaller
+	Unmarshaller() Unmarshaller
 
-	// ConfigModelValidator returns the config model validator
-	Validator() ConfigModelValidator
+	// Validator returns the config model validator
+	Validator() Validator
 }
 
-// ConfigModelUnmarshaller is a config model unmarshaller
-type ConfigModelUnmarshaller interface {
+// Unmarshaller is a config model unmarshaller
+type Unmarshaller interface {
 	// Unmarshal unmarshals the given config
 	Unmarshal(bytes []byte) (*ygot.ValidatedGoStruct, error)
 }
 
-// ConfigModelValidator is a config model validator
-type ConfigModelValidator interface {
+// Validator is a config model validator
+type Validator interface {
 	// Validate validates the given config struct
 	Validate(model *ygot.ValidatedGoStruct, opts ...ygot.ValidationOption) error
 }
