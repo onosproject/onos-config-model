@@ -1,10 +1,4 @@
-FROM golang:1.14-alpine
-
-ENV GO111MODULE=on
-
-RUN apk upgrade --update --no-cache && \
-    apk add --no-cache gcc musl-dev && \
-    go get -u github.com/openconfig/ygot/generator
+FROM onosproject/golang-build:v0.6.3
 
 COPY go.mod go.sum /onos-config-model/
 
