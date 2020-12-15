@@ -110,7 +110,15 @@ func getCompileCmd() *cobra.Command {
 				TemplatePath: "pkg/compiler/templates",
 				OutputPath:   outputPath,
 			}
-			return compiler.CompilePlugin(modelInfo, config)
+			if err := compiler.CompilePlugin(modelInfo, config); err != nil {
+				return err
+			}
+
+			registryConfig := registry.Config{
+				Path: outputPath,
+			}
+			registry := registry.NewRegistry(registryConfig)
+			return registry.AddModel(modelInfo)
 		},
 	}
 	cmd.Flags().StringP("name", "n", "", "the model name")
@@ -252,7 +260,7 @@ func getRegistryGetCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringP("address", "a", "localhost:5150", "the registry address")
+	cmd.Flags().StringP("address", "a", "localhost:5151", "the registry address")
 	cmd.Flags().StringP("name", "n", "", "the model name")
 	cmd.Flags().StringP("version", "v", "", "the model version")
 	return cmd
@@ -307,7 +315,7 @@ func getRegistryListCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringP("address", "a", "localhost:5150", "the registry address")
+	cmd.Flags().StringP("address", "a", "localhost:5151", "the registry address")
 	return cmd
 }
 
@@ -358,7 +366,7 @@ func getRegistryPushCmd() *cobra.Command {
 			return err
 		},
 	}
-	cmd.Flags().StringP("address", "a", "localhost:5150", "the registry address")
+	cmd.Flags().StringP("address", "a", "localhost:5151", "the registry address")
 	cmd.Flags().StringP("name", "n", "", "the model name")
 	cmd.Flags().StringP("version", "v", "", "the model version")
 	cmd.Flags().StringToStringP("module", "m", map[string]string{}, "model files")
@@ -390,7 +398,7 @@ func getRegistryDeleteCmd() *cobra.Command {
 			return err
 		},
 	}
-	cmd.Flags().StringP("address", "a", "localhost:5150", "the registry address")
+	cmd.Flags().StringP("address", "a", "localhost:5151", "the registry address")
 	cmd.Flags().StringP("name", "n", "", "the model name")
 	cmd.Flags().StringP("version", "v", "", "the model version")
 	return cmd

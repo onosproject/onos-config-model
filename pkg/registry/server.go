@@ -140,7 +140,7 @@ func (s *Server) PushModel(ctx context.Context, request *configmodel.PushModelRe
 		log.Warnf("PushModelRequest %+v failed: %v", request, err)
 		return nil, err
 	}
-	err = s.registry.addModel(modelInfo)
+	err = s.registry.AddModel(modelInfo)
 	response := &configmodel.PushModelResponse{}
 	log.Debugf("Sending PushModelResponse %+v", response)
 	return response, nil
@@ -148,7 +148,7 @@ func (s *Server) PushModel(ctx context.Context, request *configmodel.PushModelRe
 
 func (s *Server) DeleteModel(ctx context.Context, request *configmodel.DeleteModelRequest) (*configmodel.DeleteModelResponse, error) {
 	log.Debugf("Received DeleteModelRequest %+v", request)
-	err := s.registry.removeModel(model.Name(request.Name), model.Version(request.Version))
+	err := s.registry.RemoveModel(model.Name(request.Name), model.Version(request.Version))
 	if err != nil {
 		log.Warnf("DeleteModelRequest %+v failed: %v", request, err)
 		return nil, err

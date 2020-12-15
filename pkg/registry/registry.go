@@ -57,8 +57,8 @@ func (r *ConfigModelRegistry) ListModels() ([]model.ConfigModelInfo, error) {
 	return loadModels(r.Config.Path)
 }
 
-// addModel adds a model to the registry
-func (r *ConfigModelRegistry) addModel(model model.ConfigModelInfo) error {
+// AddModel adds a model to the registry
+func (r *ConfigModelRegistry) AddModel(model model.ConfigModelInfo) error {
 	log.Debugf("Adding model '%s/%s' to registry '%s'", model.Name, model.Version, r.Config.Path)
 	bytes, err := json.MarshalIndent(model, "", "  ")
 	if err != nil {
@@ -74,8 +74,8 @@ func (r *ConfigModelRegistry) addModel(model model.ConfigModelInfo) error {
 	return nil
 }
 
-// removeModel removes a model from the registry
-func (r *ConfigModelRegistry) removeModel(name model.Name, version model.Version) error {
+// RemoveModel removes a model from the registry
+func (r *ConfigModelRegistry) RemoveModel(name model.Name, version model.Version) error {
 	log.Debugf("Deleting model '%s/%s' from registry '%s'", name, version, r.Config.Path)
 	path := r.getDescriptorFile(name, version)
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
