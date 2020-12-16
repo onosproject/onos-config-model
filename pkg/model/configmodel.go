@@ -65,8 +65,6 @@ type ModuleInfo struct {
 type PluginInfo struct {
 	Name    Name    `json:"name"`
 	Version Version `json:"version"`
-	Target  string  `json:"target"`
-	Replace string  `json:"replace"`
 	File    string  `json:"file"`
 }
 

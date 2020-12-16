@@ -88,8 +88,6 @@ func getCompileCmd() *cobra.Command {
 				Plugin: configmodel.PluginInfo{
 					Name:    configmodel.Name(name),
 					Version: configmodel.Version(version),
-					Target:  target,
-					Replace: replace,
 					File:    fmt.Sprintf("%s-%s.so", name, version),
 				},
 			}
@@ -114,6 +112,8 @@ func getCompileCmd() *cobra.Command {
 				TemplatePath: "pkg/model/plugin/compiler/templates",
 				BuildPath:    buildPath,
 				OutputPath:   outputPath,
+				Target:       target,
+				Replace:      replace,
 			}
 			if err := plugincompiler.CompilePlugin(modelInfo, config); err != nil {
 				return err
@@ -169,7 +169,11 @@ func getRegistryServeCmd() *cobra.Command {
 			if buildPath == "" {
 				buildPath = filepath.Join(registryPath, "build")
 			}
+
+			target, _ := cmd.Flags().GetString("target")
+			replace, _ := cmd.Flags().GetString("replace")
 			port, _ := cmd.Flags().GetInt16("port")
+
 			server := northbound.NewServer(&northbound.ServerConfig{
 				CaPath:      &caCert,
 				CertPath:    &cert,
@@ -178,6 +182,7 @@ func getRegistryServeCmd() *cobra.Command {
 				Insecure:    true,
 				SecurityCfg: &northbound.SecurityConfig{},
 			})
+
 			registryConfig := modelregistry.Config{
 				Path: registryPath,
 			}
@@ -185,8 +190,12 @@ func getRegistryServeCmd() *cobra.Command {
 				TemplatePath: "pkg/model/plugin/compiler/templates",
 				BuildPath:    buildPath,
 				OutputPath:   registryPath,
+				Target:       target,
+				Replace:      replace,
 			}
-			server.AddService(modelregistry.NewService(modelregistry.NewConfigModelRegistry(registryConfig), plugincompiler.NewPluginCompiler(compilerConfig)))
+
+			service := modelregistry.NewService(modelregistry.NewConfigModelRegistry(registryConfig), plugincompiler.NewPluginCompiler(compilerConfig))
+			server.AddService(service)
 
 			c := make(chan os.Signal, 1)
 			signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -212,6 +221,8 @@ func getRegistryServeCmd() *cobra.Command {
 	cmd.Flags().String("ca-cert", "", "the CA certificate")
 	cmd.Flags().String("cert", "", "the certificate")
 	cmd.Flags().String("key", "", "the key")
+	cmd.Flags().StringP("target", "t", "", "the target Go module")
+	cmd.Flags().StringP("replace", "r", "", "the replace Go module")
 	return cmd
 }
 
@@ -224,11 +235,13 @@ func getRegistryGetCmd() *cobra.Command {
 			address, _ := cmd.Flags().GetString("address")
 			name, _ := cmd.Flags().GetString("name")
 			version, _ := cmd.Flags().GetString("version")
+
 			conn, err := connect(address)
 			if err != nil {
 				return err
 			}
 			defer conn.Close()
+
 			client := configmodelapi.NewConfigModelRegistryServiceClient(conn)
 			request := &configmodelapi.GetModelRequest{
 				Name:    name,
@@ -240,6 +253,7 @@ func getRegistryGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
 			var moduleInfos []configmodel.ModuleInfo
 			for _, module := range response.Model.Modules {
 				moduleInfos = append(moduleInfos, configmodel.ModuleInfo{
@@ -249,6 +263,7 @@ func getRegistryGetCmd() *cobra.Command {
 					Data:         module.Data,
 				})
 			}
+
 			modelInfo := configmodel.ModelInfo{
 				Name:    configmodel.Name(response.Model.Name),
 				Version: configmodel.Version(response.Model.Version),
@@ -259,6 +274,7 @@ func getRegistryGetCmd() *cobra.Command {
 					File:    fmt.Sprintf("%s-%s.so", response.Model.Name, response.Model.Version),
 				},
 			}
+
 			bytes, err := json.MarshalIndent(modelInfo, "", "  ")
 			if err != nil {
 				return err
@@ -336,8 +352,6 @@ func getRegistryPushCmd() *cobra.Command {
 			name, _ := cmd.Flags().GetString("name")
 			version, _ := cmd.Flags().GetString("version")
 			modules, _ := cmd.Flags().GetStringToString("module")
-			target, _ := cmd.Flags().GetString("target")
-			replace, _ := cmd.Flags().GetString("replace")
 			conn, err := connect(address)
 			if err != nil {
 				return err
@@ -348,8 +362,6 @@ func getRegistryPushCmd() *cobra.Command {
 				Name:    name,
 				Version: version,
 				Modules: []*configmodelapi.ConfigModule{},
-				Target:  target,
-				Replace: replace,
 			}
 			for nameVersion, module := range modules {
 				names := strings.Split(nameVersion, "@")
@@ -381,8 +393,6 @@ func getRegistryPushCmd() *cobra.Command {
 	cmd.Flags().StringP("name", "n", "", "the model name")
 	cmd.Flags().StringP("version", "v", "", "the model version")
 	cmd.Flags().StringToStringP("module", "m", map[string]string{}, "model files")
-	cmd.Flags().StringP("target", "t", "", "the target Go module")
-	cmd.Flags().StringP("replace", "r", "", "the replace Go module")
 	return cmd
 }
 

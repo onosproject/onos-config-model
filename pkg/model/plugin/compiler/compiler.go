@@ -92,6 +92,8 @@ type CompilerConfig struct {
 	TemplatePath string
 	BuildPath    string
 	OutputPath   string
+	Target       string
+	Replace      string
 }
 
 // NewPluginCompiler creates a new model plugin compiler
@@ -292,7 +294,7 @@ func (c *PluginCompiler) generateTemplate(model configmodel.ModelInfo, template,
 }
 
 func (c *PluginCompiler) generateMod(model configmodel.ModelInfo) error {
-	if model.Plugin.Target == "" {
+	if c.Config.Target == "" {
 		return c.generateTemplate(model, modTemplate, c.getTemplatePath(modTemplate), c.getModulePath(model, modFile))
 	}
 	return c.fetchMod(model)
@@ -337,8 +339,8 @@ func (c *PluginCompiler) fetchMod(model configmodel.ModelInfo) error {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	target := model.Plugin.Target
-	replace := model.Plugin.Replace
+	target := c.Config.Target
+	replace := c.Config.Replace
 	targetPath, _ := splitModPathVersion(target)
 
 	// Generate a temporary module with which to pull the target module
