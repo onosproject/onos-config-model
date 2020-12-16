@@ -1,4 +1,6 @@
-FROM onosproject/golang-build:v0.6.3
+ARG GOLANG_BUILD_VERSION=latest
+
+FROM onosproject/golang-build:$GOLANG_BUILD_VERSION
 
 COPY go.mod go.sum /onos-config-model/
 

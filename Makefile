@@ -5,7 +5,8 @@ export GO111MODULE=on
 
 ONOS_CONFIG_MODEL_VERSION ?= latest
 ONOS_PROTOC_VERSION := v0.6.7
-GOLANG_BUILD_VERSION  := v0.6.3
+GOLANG_BUILD_VERSIONS  := v0.6.3 v0.6.6
+DEFAULT_GOLANG_BUILD_VERSION := v0.6.3
 
 linters: # @HELP examines Go source code and reports coding problems
 	golangci-lint run --timeout 30m
@@ -51,27 +52,13 @@ serve:
 		--registry-path /onos-config-model/models \
 		--build-path /onos-config-model/build
 
-images: config-model-base-image config-model-compiler-image config-model-registry-image
-
-config-model-base-image:
-	docker build . -f build/config-model-base/Dockerfile \
-    	-t onosproject/config-model-base:go-${ONOS_CONFIG_MODEL_VERSION}
-
-config-model-compiler-image:
-	docker build . -f build/config-model-compiler/Dockerfile \
-		--build-arg CONFIG_MODEL_BASE_VERSION=${ONOS_CONFIG_MODEL_VERSION} \
-		-t onosproject/config-model-compiler:go-${ONOS_CONFIG_MODEL_VERSION}
-
-config-model-registry-image:
-	docker build . -f build/config-model-registry/Dockerfile \
-		--build-arg CONFIG_MODEL_BASE_VERSION=${ONOS_CONFIG_MODEL_VERSION} \
-		-t onosproject/config-model-registry:go-${ONOS_CONFIG_MODEL_VERSION}
+images:
+	./build/bin/build-images ${ONOS_CONFIG_MODEL_VERSION} ${DEFAULT_GOLANG_BUILD_VERSION} ${GOLANG_BUILD_VERSIONS}
 
 kind: # @HELP build Docker images and add them to the currently configured kind cluster
 kind: images
 	@if [ "`kind get clusters`" = '' ]; then echo "no kind cluster found" && exit 1; fi
-	kind load docker-image onosproject/config-model-compiler:go-${ONOS_CONFIG_MODEL_VERSION}
-	kind load docker-image onosproject/config-model-registry:go-${ONOS_CONFIG_MODEL_VERSION}
+	./build/bin/load-images ${ONOS_CONFIG_MODEL_VERSION} ${DEFAULT_GOLANG_BUILD_VERSION} ${GOLANG_BUILD_VERSIONS}
 
 clean: # @HELP remove all the build artifacts
 	@rm -r `pwd`/models

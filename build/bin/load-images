@@ -1,0 +1,16 @@
+#!/bin/bash
+
+version=$1
+shift
+
+defbuild=$1
+shift
+
+for build in "$@"
+do
+    kind load docker-image onosproject/config-model-compiler:go-${version}-build-${build}
+    kind load docker-image onosproject/config-model-registry:go-${version}-build-${build}
+done
+
+kind load docker-image onosproject/config-model-compiler:go-${version}
+kind load docker-image onosproject/config-model-registry:go-${version}
