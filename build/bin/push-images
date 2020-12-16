@@ -1,13 +1,14 @@
 #!/bin/bash
 echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin
-make images
-docker push onosproject/config-model-testdevice-1.0.0
-docker push onosproject/config-model-testdevice-2.0.0
-docker push onosproject/config-model-devicesim-1.0.0
-docker push onosproject/config-model-stratum-1.0.0
-docker push onosproject/config-model-e2node-1.0.0
-docker push onosproject/config-model-rbac-1.0.0
-docker push onosproject/config-model-aether-1.0.0
-docker push onosproject/config-model-aether-2.0.0
-docker push onosproject/config-model-ric-1.0.0
-docker push onosproject/config-model-enterprise-1.0.0
+
+version=$1
+shift
+
+for build in "$@"
+do
+    docker push onosproject/config-model-compiler:go-${version}-build-${build}
+    docker push onosproject/config-model-registry:go-${version}-build-${build}
+done
+
+docker push onosproject/config-model-compiler:go-${version}
+docker push onosproject/config-model-registry:go-${version}

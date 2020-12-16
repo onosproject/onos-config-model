@@ -15,7 +15,7 @@ do
         --build-arg GOLANG_BUILD_VERSION=${build} \
         --build-arg CONFIG_MODEL_VERSION=${version} \
         -t onosproject/config-model-compiler:go-${version}-build-${build}
-    docker build . -f build/config-model-compiler/Dockerfile \
+    docker build . -f build/config-model-registry/Dockerfile \
         --build-arg GOLANG_BUILD_VERSION=${build} \
         --build-arg CONFIG_MODEL_VERSION=${version} \
         -t onosproject/config-model-registry:go-${version}-build-${build}

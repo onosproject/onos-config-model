@@ -60,6 +60,9 @@ kind: images
 	@if [ "`kind get clusters`" = '' ]; then echo "no kind cluster found" && exit 1; fi
 	./build/bin/load-images ${ONOS_CONFIG_MODEL_VERSION} ${DEFAULT_GOLANG_BUILD_VERSION} ${GOLANG_BUILD_VERSIONS}
 
+push: images
+	./build/bin/push-images ${ONOS_CONFIG_MODEL_VERSION} ${GOLANG_BUILD_VERSIONS}
+
 clean: # @HELP remove all the build artifacts
 	@rm -r `pwd`/models
 	@rm -r `pwd`/build/plugins
