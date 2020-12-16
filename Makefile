@@ -31,11 +31,14 @@ compile-plugins: # @HELP compile standard plugins
 compile-plugins:
 	docker run \
 		-v `pwd`/examples:/onos-config-model/plugins \
+		-v `pwd`/build/_output:/onos-config-model/build \
 		onosproject/config-model-compiler:go-${ONOS_CONFIG_MODEL_VERSION} \
 		--name test \
 		--version 1.0.0 \
 		--module test@2020-11-18=/onos-config-model/plugins/test@2020-11-18.yang \
-		--build-path /onos-config-model/build/test \
+		--target github.com/onosproject/onos-config \
+		--replace github.com/kuujo/onos-config@f4d3d81 \
+		--build-path /onos-config-model/build \
 		--output-path /onos-config-model/plugins
 
 serve: # @HELP start the registry server

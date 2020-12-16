@@ -132,6 +132,8 @@ func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushMode
 		Plugin: configmodel.PluginInfo{
 			Name:    configmodel.Name(request.Model.Name),
 			Version: configmodel.Version(request.Model.Version),
+			Target:  request.Model.Target,
+			Replace: request.Model.Replace,
 			File:    getPluginFile(request.Model.Name, request.Model.Version),
 		},
 	}

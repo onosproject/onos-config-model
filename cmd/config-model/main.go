@@ -65,6 +65,8 @@ func getCompileCmd() *cobra.Command {
 			name, _ := cmd.Flags().GetString("name")
 			version, _ := cmd.Flags().GetString("version")
 			modules, _ := cmd.Flags().GetStringToString("module")
+			target, _ := cmd.Flags().GetString("target")
+			replace, _ := cmd.Flags().GetString("replace")
 
 			outputPath, _ := cmd.Flags().GetString("output-path")
 			if outputPath == "" {
@@ -86,6 +88,8 @@ func getCompileCmd() *cobra.Command {
 				Plugin: configmodel.PluginInfo{
 					Name:    configmodel.Name(name),
 					Version: configmodel.Version(version),
+					Target:  target,
+					Replace: replace,
 					File:    fmt.Sprintf("%s-%s.so", name, version),
 				},
 			}
@@ -125,6 +129,8 @@ func getCompileCmd() *cobra.Command {
 	cmd.Flags().StringP("name", "n", "", "the model name")
 	cmd.Flags().StringP("version", "v", "", "the model version")
 	cmd.Flags().StringToStringP("module", "m", map[string]string{}, "model files")
+	cmd.Flags().StringP("target", "t", "", "the target Go module")
+	cmd.Flags().StringP("replace", "r", "", "the replace Go module")
 	cmd.Flags().StringP("build-path", "b", "", "the build path")
 	cmd.Flags().StringP("output-path", "o", "", "the output path")
 	return cmd
@@ -330,6 +336,8 @@ func getRegistryPushCmd() *cobra.Command {
 			name, _ := cmd.Flags().GetString("name")
 			version, _ := cmd.Flags().GetString("version")
 			modules, _ := cmd.Flags().GetStringToString("module")
+			target, _ := cmd.Flags().GetString("target")
+			replace, _ := cmd.Flags().GetString("replace")
 			conn, err := connect(address)
 			if err != nil {
 				return err
@@ -340,6 +348,8 @@ func getRegistryPushCmd() *cobra.Command {
 				Name:    name,
 				Version: version,
 				Modules: []*configmodelapi.ConfigModule{},
+				Target:  target,
+				Replace: replace,
 			}
 			for nameVersion, module := range modules {
 				names := strings.Split(nameVersion, "@")
@@ -371,6 +381,8 @@ func getRegistryPushCmd() *cobra.Command {
 	cmd.Flags().StringP("name", "n", "", "the model name")
 	cmd.Flags().StringP("version", "v", "", "the model version")
 	cmd.Flags().StringToStringP("module", "m", map[string]string{}, "model files")
+	cmd.Flags().StringP("target", "t", "", "the target Go module")
+	cmd.Flags().StringP("replace", "r", "", "the replace Go module")
 	return cmd
 }
 

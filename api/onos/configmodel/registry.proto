@@ -22,6 +22,8 @@ message ConfigModel {
     string name = 1;
     string version = 2;
     repeated ConfigModule modules = 3;
+    string target = 4;
+    string replace = 5;
 }
 
 message ConfigModule {
