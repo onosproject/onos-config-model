@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/onosproject/onos-config-model-go/pkg/model"
+	"github.com/onosproject/onos-config-model-go/pkg/model/plugin"
 	"github.com/onosproject/onos-lib-go/pkg/errors"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	"github.com/rogpeppe/go-internal/module"
@@ -106,6 +107,15 @@ func (r *ConfigModelRegistry) RemoveModel(name configmodel.Name, version configm
 	}
 	log.Infof("Model '%s/%s' deleted from registry '%s'", name, version, r.Config.Path)
 	return nil
+}
+
+// LoadPlugin loads a plugin from the registry
+func (r *ConfigModelRegistry) LoadPlugin(name configmodel.Name, version configmodel.Version) (modelplugin.ConfigModelPlugin, error) {
+	return modelplugin.Load(r.getPluginFile(name, version))
+}
+
+func (r *ConfigModelRegistry) getPluginFile(name configmodel.Name, version configmodel.Version) string {
+	return filepath.Join(r.Config.Path, fmt.Sprintf("%s-%s.so", name, version))
 }
 
 func (r *ConfigModelRegistry) getDescriptorFile(name configmodel.Name, version configmodel.Version) string {

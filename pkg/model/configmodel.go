@@ -65,7 +65,6 @@ type ModuleInfo struct {
 type PluginInfo struct {
 	Name    Name    `json:"name"`
 	Version Version `json:"version"`
-	File    string  `json:"file"`
 }
 
 // ConfigModel is a configuration model data

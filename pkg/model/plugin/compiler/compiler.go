@@ -180,7 +180,7 @@ func (c *PluginCompiler) getTemplateInfo(model configmodel.ModelInfo) (TemplateI
 }
 
 func (c *PluginCompiler) getPluginPath(model configmodel.ModelInfo) string {
-	return filepath.Join(c.Config.OutputPath, model.Plugin.File)
+	return filepath.Join(c.Config.OutputPath, fmt.Sprintf("%s-%s.so", model.Plugin.Name, model.Plugin.Version))
 }
 
 func (c *PluginCompiler) getPluginMod(model configmodel.ModelInfo) string {

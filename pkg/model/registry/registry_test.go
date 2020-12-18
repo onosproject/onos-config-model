@@ -47,7 +47,6 @@ func TestRegistry(t *testing.T) {
 		Plugin: configmodel.PluginInfo{
 			Name:    "foo",
 			Version: "1.0.0",
-			File:    "foo@1.0.0.so",
 		},
 	}
 	err = registry.AddModel(modelInfo)

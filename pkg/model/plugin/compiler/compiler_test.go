@@ -48,13 +48,12 @@ func TestCompiler(t *testing.T) {
 		Plugin: configmodel.PluginInfo{
 			Name:    "test",
 			Version: "1.0.0",
-			File:    "test@1.0.0.so",
 		},
 	}
 	err = compiler.CompilePlugin(modelInfo)
 	assert.NoError(t, err)
 
-	plugin, err := modelplugin.Load(filepath.Join(moduleRoot, "test", "_output", "test@1.0.0.so"))
+	plugin, err := modelplugin.Load(filepath.Join(moduleRoot, "test", "_output", "test-1.0.0.so"))
 	assert.NoError(t, err)
 	assert.NotNil(t, plugin)
 }

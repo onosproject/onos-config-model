@@ -16,7 +16,6 @@ package modelregistry
 
 import (
 	"context"
-	"fmt"
 	configmodelapi "github.com/onosproject/onos-config-model-go/api/onos/configmodel"
 	"github.com/onosproject/onos-config-model-go/pkg/model"
 	"github.com/onosproject/onos-config-model-go/pkg/model/plugin/compiler"
@@ -132,7 +131,6 @@ func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushMode
 		Plugin: configmodel.PluginInfo{
 			Name:    configmodel.Name(request.Model.Name),
 			Version: configmodel.Version(request.Model.Version),
-			File:    getPluginFile(request.Model.Name, request.Model.Version),
 		},
 	}
 	err := s.compiler.CompilePlugin(modelInfo)
@@ -153,17 +151,13 @@ func (s *Server) DeleteModel(ctx context.Context, request *configmodelapi.Delete
 		log.Warnf("DeleteModelRequest %+v failed: %v", request, err)
 		return nil, err
 	}
-	path := filepath.Join(s.registry.Config.Path, getPluginFile(request.Name, request.Version))
+	path := filepath.Join(s.registry.Config.Path, s.registry.getPluginFile(configmodel.Name(request.Name), configmodel.Version(request.Version)))
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		os.Remove(path)
 	}
 	response := &configmodelapi.DeleteModelResponse{}
 	log.Debugf("Sending DeleteModelResponse %+v", response)
 	return response, nil
-}
-
-func getPluginFile(name, version string) string {
-	return fmt.Sprintf("%s-%s.so", name, version)
 }
 
 var _ configmodelapi.ConfigModelRegistryServiceServer = &Server{}

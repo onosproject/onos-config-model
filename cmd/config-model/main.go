@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"fmt"
 	configmodelapi "github.com/onosproject/onos-config-model-go/api/onos/configmodel"
 	"github.com/onosproject/onos-config-model-go/pkg/model"
 	"github.com/onosproject/onos-config-model-go/pkg/model/plugin/compiler"
@@ -86,7 +85,6 @@ func getCompileCmd() *cobra.Command {
 				Plugin: configmodel.PluginInfo{
 					Name:    configmodel.Name(name),
 					Version: configmodel.Version(version),
-					File:    fmt.Sprintf("%s-%s.so", name, version),
 				},
 			}
 			for nameVersion, module := range modules {
@@ -268,7 +266,6 @@ func getRegistryGetCmd() *cobra.Command {
 				Plugin: configmodel.PluginInfo{
 					Name:    configmodel.Name(response.Model.Name),
 					Version: configmodel.Version(response.Model.Version),
-					File:    fmt.Sprintf("%s-%s.so", response.Model.Name, response.Model.Version),
 				},
 			}
 
@@ -323,7 +320,6 @@ func getRegistryListCmd() *cobra.Command {
 					Plugin: configmodel.PluginInfo{
 						Name:    configmodel.Name(modelInfo.Name),
 						Version: configmodel.Version(modelInfo.Version),
-						File:    fmt.Sprintf("%s-%s.so", modelInfo.Name, modelInfo.Version),
 					},
 				}
 				bytes, err := json.MarshalIndent(model, "", "  ")
