@@ -20,6 +20,7 @@ import (
 	"github.com/onosproject/onos-config-model-go/pkg/model"
 	"github.com/onosproject/onos-lib-go/pkg/errors"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
+	"github.com/rogpeppe/go-internal/module"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -27,6 +28,12 @@ import (
 )
 
 const jsonExt = ".json"
+
+const (
+	modelRegistryEnv = "CONFIG_MODEL_REGISTRY"
+	targetModuleEnv  = "CONFIG_MODULE_TARGET"
+	replaceModuleEnv = "CONFIG_MODULE_REPLACE"
+)
 
 var log = logging.GetLogger("config-model", "registry")
 
@@ -43,6 +50,16 @@ func NewConfigModelRegistry(config Config) *ConfigModelRegistry {
 	return &ConfigModelRegistry{
 		Config: config,
 	}
+}
+
+// NewConfigModelRegistryFromEnv creates a new config model registry from the environment
+func NewConfigModelRegistryFromEnv() *ConfigModelRegistry {
+	dir, target, replace := os.Getenv(modelRegistryEnv), os.Getenv(targetModuleEnv), os.Getenv(replaceModuleEnv)
+	path, err := GetPath(dir, target, replace)
+	if err != nil {
+		panic(err)
+	}
+	return NewConfigModelRegistry(Config{Path: path})
 }
 
 // ConfigModelRegistry is a registry of config models
@@ -138,4 +155,43 @@ func loadModel(path string) (configmodel.ModelInfo, error) {
 	}
 	log.Infof("Loaded model '%s': %s", path, bytes)
 	return modelInfo, nil
+}
+
+func GetPath(dir, target, replace string) (string, error) {
+	if dir == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		dir = cwd
+	}
+
+	var path string
+	var version string
+	if replace == "" {
+		if i := strings.Index(target, "@"); i >= 0 {
+			path = target[:i]
+			version = target[i+1:]
+		} else {
+			path = target
+		}
+	} else {
+		if i := strings.Index(replace, "@"); i >= 0 {
+			path = replace[:i]
+			version = replace[i+1:]
+		} else {
+			path = replace
+		}
+	}
+
+	encPath, err := module.EncodePath(path)
+	if err != nil {
+		return "", err
+	}
+
+	elems := []string{dir, encPath}
+	if version != "" {
+		elems = append(elems, fmt.Sprintf("@%s", version))
+	}
+	return filepath.Join(elems...), nil
 }

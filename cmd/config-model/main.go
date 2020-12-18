@@ -65,17 +65,15 @@ func getCompileCmd() *cobra.Command {
 			name, _ := cmd.Flags().GetString("name")
 			version, _ := cmd.Flags().GetString("version")
 			modules, _ := cmd.Flags().GetStringToString("module")
+			outputPath, _ := cmd.Flags().GetString("output-path")
 			target, _ := cmd.Flags().GetString("target")
 			replace, _ := cmd.Flags().GetString("replace")
 
-			outputPath, _ := cmd.Flags().GetString("output-path")
-			if outputPath == "" {
-				dir, err := os.Getwd()
-				if err != nil {
-					return err
-				}
-				outputPath = dir
+			repoPath, err := modelregistry.GetPath(outputPath, target, replace)
+			if err != nil {
+				return err
 			}
+
 			buildPath, _ := cmd.Flags().GetString("build-path")
 			if buildPath == "" {
 				buildPath = filepath.Join(outputPath, "build")
@@ -111,7 +109,7 @@ func getCompileCmd() *cobra.Command {
 			config := plugincompiler.CompilerConfig{
 				TemplatePath: "pkg/model/plugin/compiler/templates",
 				BuildPath:    buildPath,
-				OutputPath:   outputPath,
+				OutputPath:   repoPath,
 				Target:       target,
 				Replace:      replace,
 			}
@@ -120,7 +118,7 @@ func getCompileCmd() *cobra.Command {
 			}
 
 			registryConfig := modelregistry.Config{
-				Path: outputPath,
+				Path: repoPath,
 			}
 			registry := modelregistry.NewConfigModelRegistry(registryConfig)
 			return registry.AddModel(modelInfo)
@@ -158,20 +156,19 @@ func getRegistryServeCmd() *cobra.Command {
 			cert, _ := cmd.Flags().GetString("cert")
 			key, _ := cmd.Flags().GetString("key")
 			registryPath, _ := cmd.Flags().GetString("registry-path")
-			if registryPath == "" {
-				wd, err := os.Getwd()
-				if err != nil {
-					return err
-				}
-				registryPath = wd
+			target, _ := cmd.Flags().GetString("target")
+			replace, _ := cmd.Flags().GetString("replace")
+
+			repoPath, err := modelregistry.GetPath(registryPath, target, replace)
+			if err != nil {
+				return err
 			}
+
 			buildPath, _ := cmd.Flags().GetString("build-path")
 			if buildPath == "" {
 				buildPath = filepath.Join(registryPath, "build")
 			}
 
-			target, _ := cmd.Flags().GetString("target")
-			replace, _ := cmd.Flags().GetString("replace")
 			port, _ := cmd.Flags().GetInt16("port")
 
 			server := northbound.NewServer(&northbound.ServerConfig{
@@ -189,7 +186,7 @@ func getRegistryServeCmd() *cobra.Command {
 			compilerConfig := plugincompiler.CompilerConfig{
 				TemplatePath: "pkg/model/plugin/compiler/templates",
 				BuildPath:    buildPath,
-				OutputPath:   registryPath,
+				OutputPath:   repoPath,
 				Target:       target,
 				Replace:      replace,
 			}
@@ -205,7 +202,7 @@ func getRegistryServeCmd() *cobra.Command {
 			}()
 
 			log.Infof("Starting registry server at '%s'", registryPath)
-			err := server.Serve(func(address string) {
+			err = server.Serve(func(address string) {
 				log.Infof("Serving models at '%s' on %s", registryPath, address)
 			})
 			if err != nil {
