@@ -17,7 +17,7 @@ package plugincompiler
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/onosproject/onos-config-model-go/pkg/model"
+	"github.com/onosproject/onos-config-model/pkg/model"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	"github.com/rogpeppe/go-internal/modfile"
 	"github.com/rogpeppe/go-internal/module"
@@ -184,7 +184,7 @@ func (c *PluginCompiler) getPluginPath(model configmodel.ModelInfo) string {
 }
 
 func (c *PluginCompiler) getPluginMod(model configmodel.ModelInfo) string {
-	return fmt.Sprintf("github.com/onosproject/onos-config-model-go/%s", c.getSafeQualifiedName(model))
+	return fmt.Sprintf("github.com/onosproject/onos-config-model/%s", c.getSafeQualifiedName(model))
 }
 
 func (c *PluginCompiler) compilePlugin(model configmodel.ModelInfo) error {

@@ -23,8 +23,8 @@ build: # @HELP build all libraries
 build: linters license_check gofmt
 
 protos: # @HELP compile the protobuf files (using protoc-go Docker)
-	docker run -it -v `pwd`:/go/src/github.com/onosproject/onos-config-model-go \
-		-w /go/src/github.com/onosproject/onos-config-model-go \
+	docker run -it -v `pwd`:/go/src/github.com/onosproject/onos-config-model \
+		-w /go/src/github.com/onosproject/onos-config-model \
 		--entrypoint build/bin/compile-protos.sh \
 		onosproject/protoc-go:${ONOS_PROTOC_VERSION}
 

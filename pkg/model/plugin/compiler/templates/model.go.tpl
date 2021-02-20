@@ -4,7 +4,7 @@ import (
 	"github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/goyang/pkg/yang"
 
-	"github.com/onosproject/onos-config-model-go/pkg/model"
+	"github.com/onosproject/onos-config-model/pkg/model"
 )
 
 const (

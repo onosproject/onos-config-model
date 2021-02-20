@@ -17,8 +17,8 @@ package modelregistry
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/onosproject/onos-config-model-go/pkg/model"
-	"github.com/onosproject/onos-config-model-go/pkg/model/plugin"
+	"github.com/onosproject/onos-config-model/pkg/model"
+	"github.com/onosproject/onos-config-model/pkg/model/plugin"
 	"github.com/onosproject/onos-lib-go/pkg/errors"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	"github.com/rogpeppe/go-internal/module"

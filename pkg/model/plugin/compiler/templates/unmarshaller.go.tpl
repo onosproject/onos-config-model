@@ -3,7 +3,7 @@ package configmodel
 import (
 	"github.com/openconfig/ygot/ygot"
 
-	"github.com/onosproject/onos-config-model-go/pkg/model"
+	"github.com/onosproject/onos-config-model/pkg/model"
 )
 
 // Unmarshaller defines the unmarshaller for {{ .Model.Name }} {{ .Model.Version }}

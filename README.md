@@ -23,7 +23,7 @@ When deployed as an init container, the `config-model compile` sub-command can b
 used to compile model plugins for the primary service:
 
 ```bash
-> go run github.com/onosproject/onos-config-model-go/cmd/config-model compile \
+> go run github.com/onosproject/onos-config-model/cmd/config-model compile \
     --name test \
     --version 1.0.0 \
     --module test@2020-11-18=/root/plugins/test/test@2020-11-18.yang \
@@ -44,7 +44,7 @@ The agent implements a gRPC API exposing the config model registry to clients. T
 To push a new model to the model registry, use the `registry push` sub-command:
 
 ```bash
-> go run github.com/onosproject/onos-config-model-go/cmd/config-model registry push \
+> go run github.com/onosproject/onos-config-model/cmd/config-model registry push \
     --name foo \
     --version 1.0.0 \
     --module test@2020-11-18=plugins/test/test@2020-11-18.yang
@@ -55,7 +55,7 @@ registry with the `list` command or get information about a specific model with 
 `get` command:
 
 ```bash
-> go run github.com/onosproject/onos-config-model-go/cmd/config-model registry list
+> go run github.com/onosproject/onos-config-model/cmd/config-model registry list
 {
   "name": "foo",
   "version": "1.0.0",
@@ -80,7 +80,7 @@ The model plugin can be loaded from within the agent container or any other cont
 the model volume with the config agent. To load a model, simply call the `Load` function:
 
 ```go
-import "github.com/onosproject/onos-config-model-go/pkg/model"
+import "github.com/onosproject/onos-config-model/pkg/model"
 
 ...
 

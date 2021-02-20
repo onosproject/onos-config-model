@@ -9,8 +9,8 @@ import (
 	_ "github.com/openconfig/ygot/ygot"
 	_ "github.com/openconfig/ygot/ytypes"
 
-	"github.com/onosproject/onos-config-model-go/pkg/model"
-	"github.com/onosproject/onos-config-model-go/pkg/model/plugin"
+	"github.com/onosproject/onos-config-model/pkg/model"
+	"github.com/onosproject/onos-config-model/pkg/model/plugin"
 )
 
 // ConfigModelPlugin defines the model plugin for {{ .Model.Name }} {{ .Model.Version }}

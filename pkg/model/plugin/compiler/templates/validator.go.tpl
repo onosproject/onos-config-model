@@ -4,7 +4,7 @@ import (
     "errors"
 	"github.com/openconfig/ygot/ygot"
 
-	"github.com/onosproject/onos-config-model-go/pkg/model"
+	"github.com/onosproject/onos-config-model/pkg/model"
 )
 
 // Validator defines the validator for {{ .Model.Name }} {{ .Model.Version }}

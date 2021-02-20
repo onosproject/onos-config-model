@@ -15,7 +15,7 @@
 package modelregistry
 
 import (
-	"github.com/onosproject/onos-config-model-go/pkg/model"
+	"github.com/onosproject/onos-config-model/pkg/model"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"

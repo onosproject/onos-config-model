@@ -16,9 +16,9 @@ package modelregistry
 
 import (
 	"context"
-	configmodelapi "github.com/onosproject/onos-config-model-go/api/onos/configmodel"
-	"github.com/onosproject/onos-config-model-go/pkg/model"
-	"github.com/onosproject/onos-config-model-go/pkg/model/plugin/compiler"
+	configmodelapi "github.com/onosproject/onos-config-model/api/onos/configmodel"
+	"github.com/onosproject/onos-config-model/pkg/model"
+	"github.com/onosproject/onos-config-model/pkg/model/plugin/compiler"
 	"github.com/onosproject/onos-lib-go/pkg/northbound"
 	"google.golang.org/grpc"
 	"os"
