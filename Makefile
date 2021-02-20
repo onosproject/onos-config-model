@@ -18,7 +18,7 @@ test: build deps license_check linters
 
 jenkins-test: build-tools # @HELP run the unit tests and source code validation producing a junit style report for Jenkins
 jenkins-test: build deps license_check linters
-	#TEST_PACKAGES=github.com/onosproject/onos-config-model/pkg/... ./../build-tools/build/jenkins/make-unit
+	TEST_PACKAGES=github.com/onosproject/onos-config-model/pkg/... ./../build-tools/build/jenkins/make-unit
 
 deps: # @HELP ensure that the required dependencies are in place
 	go build -v ./...
