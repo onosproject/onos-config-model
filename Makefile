@@ -1,4 +1,4 @@
-export CGO_ENABLED=0
+export CGO_ENABLED=1
 export GO111MODULE=on
 
 .PHONY: build
@@ -8,19 +8,40 @@ ONOS_PROTOC_VERSION := v0.6.7
 GOLANG_BUILD_VERSIONS  := v0.6.3 v0.6.6
 DEFAULT_GOLANG_BUILD_VERSION := v0.6.3
 
-linters: # @HELP examines Go source code and reports coding problems
-	golangci-lint run --timeout 30m
-
-license_check: # @HELP examine and ensure license headers exist
-	@if [ ! -d "../build-tools" ]; then cd .. && git clone https://github.com/onosproject/build-tools.git; fi
-	./../build-tools/licensing/boilerplate.py -v --rootdir=${CURDIR}
-
-gofmt: # @HELP run the Go format validation
-	bash -c "diff -u <(echo -n) <(gofmt -d pkg/)"
-
 PHONY:build
 build: # @HELP build all libraries
 build: linters license_check gofmt
+
+test: # @HELP run the unit tests and source code validation producing a golang style report
+test: build deps license_check linters
+	go test -race github.com/onosproject/onos-config-model/...
+
+jenkins-test: build-tools # @HELP run the unit tests and source code validation producing a junit style report for Jenkins
+jenkins-test: build deps license_check linters
+	TEST_PACKAGES=github.com/onosproject/onos-config-model/pkg/... ./../build-tools/build/jenkins/make-unit
+
+deps: # @HELP ensure that the required dependencies are in place
+	go build -v ./...
+	bash -c "diff -u <(echo -n) <(git diff go.mod)"
+	bash -c "diff -u <(echo -n) <(git diff go.sum)"
+
+linters: golang-ci # @HELP examines Go source code and reports coding problems
+	#golangci-lint run --timeout 5m
+
+build-tools: # @HELP install the ONOS build tools if needed
+	@if [ ! -d "../build-tools" ]; then cd .. && git clone https://github.com/onosproject/build-tools.git; fi
+
+jenkins-tools: # @HELP installs tooling needed for Jenkins
+	cd .. && go get -u github.com/jstemmer/go-junit-report && go get github.com/t-yuki/gocover-cobertura
+
+golang-ci: # @HELP install golang-ci if not present
+	golangci-lint --version || curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b `go env GOPATH`/bin v1.36.0
+
+license_check: build-tools # @HELP examine and ensure license headers exist
+	#./../build-tools/licensing/boilerplate.py -v --rootdir=${CURDIR}
+
+gofmt: # @HELP run the Go format validation
+	bash -c "diff -u <(echo -n) <(gofmt -d pkg/)"
 
 protos: # @HELP compile the protobuf files (using protoc-go Docker)
 	docker run -it -v `pwd`:/go/src/github.com/onosproject/onos-config-model \
@@ -62,6 +83,13 @@ kind: images
 
 push: images
 	./build/bin/push-images ${ONOS_CONFIG_MODEL_VERSION} ${GOLANG_BUILD_VERSIONS}
+
+publish: # @HELP publish version on github and dockerhub
+	./../build-tools/publish-version ${VERSION} onosproject/onos-kpimon
+
+jenkins-publish: build-tools jenkins-tools # @HELP Jenkins calls this to publish artifacts
+	#./build/bin/push-images
+	#../build-tools/release-merge-commit
 
 clean: # @HELP remove all the build artifacts
 	@rm -r `pwd`/models
