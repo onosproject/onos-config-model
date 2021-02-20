@@ -13,3 +13,8 @@
 
 .idea
 */_output
+
+# Jenkins report files
+*report*.xml
+*coverage*.xml
+*-output.out
