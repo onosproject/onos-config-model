@@ -40,10 +40,11 @@ import (
 
 var log = logging.GetLogger("config-model", "compiler")
 
+const versionFile = "VERSION"
+
 const (
-	modelDir        = "model"
-	yangDir         = "yang"
-	compilerVersion = "v0.6.10"
+	modelDir = "model"
+	yangDir  = "yang"
 )
 
 const (
@@ -66,14 +67,27 @@ const (
 )
 
 var (
-	_, b, _, _ = runtime.Caller(0)
-	moduleRoot = filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(b)))))
+	_, b, _, _            = runtime.Caller(0)
+	moduleRoot            = filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(b)))))
+	moduleVersionBytes, _ = ioutil.ReadFile(filepath.Join(moduleRoot, versionFile))
+	moduleVersion         = strings.TrimSpace(string(moduleVersionBytes))
 )
+
+const devSuffix = "-dev"
+
+func getModuleVersion() string {
+	return fmt.Sprintf("v%s", moduleVersion)
+}
+
+func isReleaseVersion() bool {
+	return !strings.HasSuffix(moduleVersion, devSuffix)
+}
 
 // CompilerInfo is the compiler info
 type CompilerInfo struct {
-	Version string
-	Root    string
+	Version   string
+	IsRelease bool
+	Root      string
 }
 
 // TemplateInfo provides all the variables for templates
@@ -173,8 +187,9 @@ func (c *PluginCompiler) getTemplateInfo(model configmodel.ModelInfo) (TemplateI
 	return TemplateInfo{
 		Model: model,
 		Compiler: CompilerInfo{
-			Version: compilerVersion,
-			Root:    moduleRoot,
+			Version:   getModuleVersion(),
+			IsRelease: isReleaseVersion(),
+			Root:      moduleRoot,
 		},
 	}, nil
 }
