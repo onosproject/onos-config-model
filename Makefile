@@ -14,7 +14,7 @@ build: linters license_check gofmt
 
 test: # @HELP run the unit tests and source code validation producing a golang style report
 test: build deps license_check linters
-	#go test -race github.com/onosproject/onos-config-model/...
+	go test -race github.com/onosproject/onos-config-model/...
 
 jenkins-test: build-tools # @HELP run the unit tests and source code validation producing a junit style report for Jenkins
 jenkins-test: build deps license_check linters
