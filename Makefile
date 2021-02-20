@@ -84,6 +84,13 @@ kind: images
 push: images
 	./build/bin/push-images ${ONOS_CONFIG_MODEL_VERSION} ${GOLANG_BUILD_VERSIONS}
 
+publish: # @HELP publish version on github and dockerhub
+	./../build-tools/publish-version ${VERSION} onosproject/onos-kpimon
+
+jenkins-publish: build-tools jenkins-tools # @HELP Jenkins calls this to publish artifacts
+	#./build/bin/push-images
+	#../build-tools/release-merge-commit
+
 clean: # @HELP remove all the build artifacts
 	@rm -r `pwd`/models
 	@rm -r `pwd`/build/plugins
