@@ -3,5 +3,9 @@ module github.com/onosproject/onos-config-model/{{ .Model.Name }}_{{ .Model.Vers
 go 1.14
 
 require (
-    github.com/onosproject/onos-config-model v0.0.1
+    github.com/onosproject/onos-config-model {{ .Compiler.Version }}
 )
+
+{{- if not .Compiler.IsRelease }}
+replace github.com/onosproject/onos-config-model => {{ .Compiler.Root }}
+{{- end }}
