@@ -24,9 +24,7 @@ import (
 )
 
 func TestCompiler(t *testing.T) {
-	if isReleaseVersion() {
-		t.Skip()
-	}
+	t.Skip()
 
 	config := CompilerConfig{
 		TemplatePath: filepath.Join(moduleRoot, "pkg", "model", "plugin", "compiler", "templates"),
