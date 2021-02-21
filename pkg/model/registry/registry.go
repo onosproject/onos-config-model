@@ -46,7 +46,10 @@ type Config struct {
 // NewConfigModelRegistry creates a new config model registry
 func NewConfigModelRegistry(config Config) *ConfigModelRegistry {
 	if _, err := os.Stat(config.Path); os.IsNotExist(err) {
-		os.MkdirAll(config.Path, os.ModePerm)
+		err = os.MkdirAll(config.Path, os.ModePerm)
+		if err != nil {
+			log.Error(err)
+		}
 	}
 	return &ConfigModelRegistry{
 		Config: config,
@@ -167,6 +170,7 @@ func loadModel(path string) (configmodel.ModelInfo, error) {
 	return modelInfo, nil
 }
 
+// GetPath :
 func GetPath(dir, target, replace string) (string, error) {
 	if dir == "" {
 		cwd, err := os.Getwd()
