@@ -10,16 +10,16 @@ for build in "$@"
 do
     docker build . -f build/config-model-base/Dockerfile \
         --build-arg GOLANG_BUILD_VERSION=${build} \
-        -t onosproject/config-model-base:go-${version}-build-${build}
+        -t onosproject/config-model-base:${version}-golang-build-${build}
     docker build . -f build/config-model-compiler/Dockerfile \
         --build-arg GOLANG_BUILD_VERSION=${build} \
         --build-arg CONFIG_MODEL_VERSION=${version} \
-        -t onosproject/config-model-compiler:go-${version}-build-${build}
+        -t onosproject/config-model-compiler:${version}-golang-build-${build}
     docker build . -f build/config-model-registry/Dockerfile \
         --build-arg GOLANG_BUILD_VERSION=${build} \
         --build-arg CONFIG_MODEL_VERSION=${version} \
-        -t onosproject/config-model-registry:go-${version}-build-${build}
+        -t onosproject/config-model-registry:${version}-golang-build-${build}
 done
 
-docker tag onosproject/config-model-compiler:go-${version}-build-${defbuild} onosproject/config-model-compiler:go-${version}
-docker tag onosproject/config-model-registry:go-${version}-build-${defbuild} onosproject/config-model-registry:go-${version}
+docker tag onosproject/config-model-compiler:${version}-golang-build-${defbuild} onosproject/config-model-compiler:${version}
+docker tag onosproject/config-model-registry:${version}-golang-build-${defbuild} onosproject/config-model-registry:${version}
