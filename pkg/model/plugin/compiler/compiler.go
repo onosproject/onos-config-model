@@ -29,13 +29,13 @@ import (
 	"strings"
 	"text/template"
 
-	_ "github.com/golang/protobuf/proto"
-	_ "github.com/openconfig/gnmi/proto/gnmi"
-	_ "github.com/openconfig/goyang/pkg/yang"
-	_ "github.com/openconfig/ygot/genutil"
-	_ "github.com/openconfig/ygot/ygen"
-	_ "github.com/openconfig/ygot/ygot"
-	_ "github.com/openconfig/ygot/ytypes"
+	_ "github.com/openconfig/gnmi/proto/gnmi" // gnmi
+	_ "github.com/openconfig/goyang/pkg/yang" // yang
+	_ "github.com/openconfig/ygot/genutil"    // genutil
+	_ "github.com/openconfig/ygot/ygen"       // ygen
+	_ "github.com/openconfig/ygot/ygot"       // ygot
+	_ "github.com/openconfig/ygot/ytypes"     // ytypes
+	_ "google.golang.org/protobuf/proto"      // proto
 )
 
 var log = logging.GetLogger("config-model", "compiler")
@@ -245,7 +245,7 @@ func (c *PluginCompiler) copyModule(model configmodel.ModelInfo, module configmo
 	path := c.getYangPath(model, module)
 	log.Debugf("Copying YANG module '%s/%s' to '%s'", module.Name, module.Version, path)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		err := ioutil.WriteFile(path, []byte(module.Data), os.ModePerm)
+		err := ioutil.WriteFile(path, module.Data, os.ModePerm)
 		if err != nil {
 			log.Errorf("Copying YANG module '%s/%s' failed: %v", module.Name, module.Version, err)
 			return err
@@ -321,12 +321,12 @@ func (c *PluginCompiler) getGoEnv() (goEnv, error) {
 		return goEnv{}, err
 	}
 
-	envJson, err := c.exec(wd, "go", "env", "-json", "GOPATH", "GOMODCACHE")
+	envJSON, err := c.exec(wd, "go", "env", "-json", "GOPATH", "GOMODCACHE")
 	if err != nil {
 		return goEnv{}, err
 	}
 	env := goEnv{}
-	if err := json.Unmarshal([]byte(envJson), &env); err != nil {
+	if err := json.Unmarshal([]byte(envJSON), &env); err != nil {
 		return goEnv{}, err
 	}
 	return env, nil

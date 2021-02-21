@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 )
 
+// NewService :
 func NewService(registry *ConfigModelRegistry, compiler *plugincompiler.PluginCompiler) northbound.Service {
 	return &Service{
 		registry: registry,
@@ -32,11 +33,13 @@ func NewService(registry *ConfigModelRegistry, compiler *plugincompiler.PluginCo
 	}
 }
 
+// Service :
 type Service struct {
 	registry *ConfigModelRegistry
 	compiler *plugincompiler.PluginCompiler
 }
 
+// Register :
 func (s *Service) Register(r *grpc.Server) {
 	server := &Server{
 		registry: s.registry,
@@ -53,6 +56,7 @@ type Server struct {
 	compiler *plugincompiler.PluginCompiler
 }
 
+// GetModel :
 func (s *Server) GetModel(ctx context.Context, request *configmodelapi.GetModelRequest) (*configmodelapi.GetModelResponse, error) {
 	log.Debugf("Received GetModelRequest %+v", request)
 	modelInfo, err := s.registry.GetModel(configmodel.Name(request.Name), configmodel.Version(request.Version))
@@ -65,7 +69,7 @@ func (s *Server) GetModel(ctx context.Context, request *configmodelapi.GetModelR
 	for _, moduleInfo := range modelInfo.Modules {
 		modules = append(modules, &configmodelapi.ConfigModule{
 			Name:         string(moduleInfo.Name),
-			Organization: string(moduleInfo.Organization),
+			Organization: moduleInfo.Organization,
 			Version:      string(moduleInfo.Version),
 			Data:         moduleInfo.Data,
 		})
@@ -81,6 +85,7 @@ func (s *Server) GetModel(ctx context.Context, request *configmodelapi.GetModelR
 	return response, nil
 }
 
+// ListModels :
 func (s *Server) ListModels(ctx context.Context, request *configmodelapi.ListModelsRequest) (*configmodelapi.ListModelsResponse, error) {
 	log.Debugf("Received ListModelsRequest %+v", request)
 	modelInfos, err := s.registry.ListModels()
@@ -95,7 +100,7 @@ func (s *Server) ListModels(ctx context.Context, request *configmodelapi.ListMod
 		for _, module := range modelInfo.Modules {
 			modules = append(modules, &configmodelapi.ConfigModule{
 				Name:         string(module.Name),
-				Organization: string(module.Organization),
+				Organization: module.Organization,
 				Version:      string(module.Version),
 				Data:         module.Data,
 			})
@@ -113,6 +118,7 @@ func (s *Server) ListModels(ctx context.Context, request *configmodelapi.ListMod
 	return response, nil
 }
 
+// PushModel :
 func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushModelRequest) (*configmodelapi.PushModelResponse, error) {
 	log.Debugf("Received PushModelRequest %+v", request)
 	var moduleInfos []configmodel.ModuleInfo
@@ -139,11 +145,15 @@ func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushMode
 		return nil, err
 	}
 	err = s.registry.AddModel(modelInfo)
+	if err != nil {
+		return nil, err
+	}
 	response := &configmodelapi.PushModelResponse{}
 	log.Debugf("Sending PushModelResponse %+v", response)
 	return response, nil
 }
 
+// DeleteModel :
 func (s *Server) DeleteModel(ctx context.Context, request *configmodelapi.DeleteModelRequest) (*configmodelapi.DeleteModelResponse, error) {
 	log.Debugf("Received DeleteModelRequest %+v", request)
 	err := s.registry.RemoveModel(configmodel.Name(request.Name), configmodel.Version(request.Version))
@@ -153,7 +163,10 @@ func (s *Server) DeleteModel(ctx context.Context, request *configmodelapi.Delete
 	}
 	path := filepath.Join(s.registry.Config.Path, s.registry.getPluginFile(configmodel.Name(request.Name), configmodel.Version(request.Version)))
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		os.Remove(path)
+		err = os.Remove(path)
+		if err != nil {
+			log.Error(err)
+		}
 	}
 	response := &configmodelapi.DeleteModelResponse{}
 	log.Debugf("Sending DeleteModelResponse %+v", response)
