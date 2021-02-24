@@ -1,6 +1,9 @@
 package configmodel
 
 import (
+    "errors"
+
+	"github.com/openconfig/ygot/ygot"
 	"github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/goyang/pkg/yang"
 
@@ -43,12 +46,26 @@ func (m ConfigModel) GetStateMode() configmodel.GetStateMode {
     return configmodel.GetStateNone
 }
 
-func (m ConfigModel) Unmarshaller() configmodel.Unmarshaller {
-    return Unmarshaller{}
+func (m ConfigModel) Unmarshaler() configmodel.Unmarshaler {
+    return func(jsonTree []byte) (*ygot.ValidatedGoStruct, error) {
+        device := &Device{}
+        vgs := ygot.ValidatedGoStruct(device)
+        if err := Unmarshal([]byte(jsonTree), device); err != nil {
+            return nil, err
+        }
+        return &vgs, nil
+    }
 }
 
 func (m ConfigModel) Validator() configmodel.Validator {
-    return Validator{}
+    return func(ygotModel *ygot.ValidatedGoStruct, opts ...ygot.ValidationOption) error {
+        deviceDeref := *ygotModel
+        device, ok := deviceDeref.(*Device)
+        if !ok {
+            return errors.New("unable to convert model")
+        }
+        return device.Validate()
+    }
 }
 
 var _ configmodel.ConfigModel = ConfigModel{}

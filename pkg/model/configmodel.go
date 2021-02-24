@@ -81,21 +81,15 @@ type ConfigModel interface {
 	// GetStateMode returns the get state mode
 	GetStateMode() GetStateMode
 
-	// Unmarshaller returns the config model unmarshaller
-	Unmarshaller() Unmarshaller
+	// Unmarshaler returns the config model unmarshaler function
+	Unmarshaler() Unmarshaler
 
-	// Validator returns the config model validator
+	// Validator returns the config model validator function
 	Validator() Validator
 }
 
-// Unmarshaller is a config model unmarshaller
-type Unmarshaller interface {
-	// Unmarshal unmarshals the given config
-	Unmarshal(bytes []byte) (*ygot.ValidatedGoStruct, error)
-}
+// Unmarshaler is a config model unmarshaler function
+type Unmarshaler func([]byte) (*ygot.ValidatedGoStruct, error)
 
-// Validator is a config model validator
-type Validator interface {
-	// Validate validates the given config struct
-	Validate(model *ygot.ValidatedGoStruct, opts ...ygot.ValidationOption) error
-}
+// Validator is a config model validator function
+type Validator func(model *ygot.ValidatedGoStruct, opts ...ygot.ValidationOption) error

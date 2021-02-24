@@ -48,22 +48,18 @@ const (
 )
 
 const (
-	modTemplate          = "go.mod.tpl"
-	mainTemplate         = "main.go.tpl"
-	pluginTemplate       = "plugin.go.tpl"
-	modelTemplate        = "model.go.tpl"
-	unmarshallerTemplate = "unmarshaller.go.tpl"
-	validatorTemplate    = "validator.go.tpl"
+	modTemplate    = "go.mod.tpl"
+	mainTemplate   = "main.go.tpl"
+	pluginTemplate = "plugin.go.tpl"
+	modelTemplate  = "model.go.tpl"
 )
 
 const (
-	modFile          = "go.mod"
-	mainFile         = "main.go"
-	pluginFile       = "plugin.go"
-	modelFile        = "model.go"
-	unmarshallerFile = "unmarshaller.go"
-	validatorFile    = "validator.go"
-	modVersionSep    = "@"
+	modFile       = "go.mod"
+	mainFile      = "main.go"
+	pluginFile    = "plugin.go"
+	modelFile     = "model.go"
+	modVersionSep = "@"
 )
 
 var (
@@ -141,14 +137,6 @@ func (c *PluginCompiler) CompilePlugin(model configmodel.ModelInfo) error {
 	// Create the model plugin
 	c.createDir(c.getModelDir(model))
 	if err := c.generateConfigModel(model); err != nil {
-		log.Errorf("Compiling ConfigModel '%s/%s' failed: %v", model.Name, model.Version, err)
-		return err
-	}
-	if err := c.generateUnmarshaller(model); err != nil {
-		log.Errorf("Compiling ConfigModel '%s/%s' failed: %v", model.Name, model.Version, err)
-		return err
-	}
-	if err := c.generateValidator(model); err != nil {
 		log.Errorf("Compiling ConfigModel '%s/%s' failed: %v", model.Name, model.Version, err)
 		return err
 	}
@@ -471,14 +459,6 @@ func (c *PluginCompiler) generateModelPlugin(model configmodel.ModelInfo) error 
 
 func (c *PluginCompiler) generateConfigModel(model configmodel.ModelInfo) error {
 	return c.generateTemplate(model, modelTemplate, c.getTemplatePath(modelTemplate), c.getModelPath(model, modelFile))
-}
-
-func (c *PluginCompiler) generateUnmarshaller(model configmodel.ModelInfo) error {
-	return c.generateTemplate(model, unmarshallerTemplate, c.getTemplatePath(unmarshallerTemplate), c.getModelPath(model, unmarshallerFile))
-}
-
-func (c *PluginCompiler) generateValidator(model configmodel.ModelInfo) error {
-	return c.generateTemplate(model, validatorTemplate, c.getTemplatePath(validatorTemplate), c.getModelPath(model, validatorFile))
 }
 
 func (c *PluginCompiler) getModuleDir(model configmodel.ModelInfo) string {
