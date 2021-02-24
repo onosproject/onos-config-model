@@ -36,6 +36,10 @@ const (
 	replaceModuleEnv = "CONFIG_MODULE_REPLACE"
 )
 
+const (
+	defaultTarget = "github.com/onosproject/onos-config"
+)
+
 var log = logging.GetLogger("config-model", "registry")
 
 // Config is a model plugin registry config
@@ -178,6 +182,9 @@ func GetPath(dir, target, replace string) (string, error) {
 			return "", err
 		}
 		dir = cwd
+	}
+	if target == "" {
+		target = defaultTarget
 	}
 
 	var path string
