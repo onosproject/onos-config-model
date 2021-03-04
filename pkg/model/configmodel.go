@@ -26,6 +26,9 @@ type Name string
 // Version is a config model version
 type Version string
 
+// Revision is a config module revision
+type Revision string
+
 // GetStateMode defines the Getstate handling
 type GetStateMode int
 
@@ -49,16 +52,23 @@ const (
 type ModelInfo struct {
 	Name    Name         `json:"name"`
 	Version Version      `json:"version"`
+	Files   []FileInfo   `json:"files"`
 	Modules []ModuleInfo `json:"modules"`
 	Plugin  PluginInfo   `json:"plugin"`
 }
 
 // ModuleInfo is a config module info
 type ModuleInfo struct {
-	Name         Name    `json:"name"`
-	Organization string  `json:"organization"`
-	Version      Version `json:"version"`
-	Data         []byte  `json:"data"`
+	Name         Name     `json:"name"`
+	File         string   `json:"file"`
+	Organization string   `json:"organization"`
+	Revision     Revision `json:"revision"`
+}
+
+// FileInfo is a config file info
+type FileInfo struct {
+	Name string `json:"name"`
+	Data []byte `json:"data"`
 }
 
 // PluginInfo is config model plugin info

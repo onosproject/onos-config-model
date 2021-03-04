@@ -147,7 +147,7 @@ func (c *PluginCompiler) CompilePlugin(model configmodel.ModelInfo) error {
 
 	// Generate the YANG bindings
 	c.createDir(c.getYangDir(model))
-	if err := c.copyModules(model); err != nil {
+	if err := c.copyFiles(model); err != nil {
 		log.Errorf("Compiling ConfigModel '%s/%s' failed: %v", model.Name, model.Version, err)
 		return err
 	}
@@ -220,22 +220,22 @@ func (c *PluginCompiler) cleanBuild(model configmodel.ModelInfo) error {
 	return nil
 }
 
-func (c *PluginCompiler) copyModules(model configmodel.ModelInfo) error {
-	for _, module := range model.Modules {
-		if err := c.copyModule(model, module); err != nil {
+func (c *PluginCompiler) copyFiles(model configmodel.ModelInfo) error {
+	for _, file := range model.Files {
+		if err := c.copyFile(model, file); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *PluginCompiler) copyModule(model configmodel.ModelInfo, module configmodel.ModuleInfo) error {
-	path := c.getYangPath(model, module)
-	log.Debugf("Copying YANG module '%s/%s' to '%s'", module.Name, module.Version, path)
+func (c *PluginCompiler) copyFile(model configmodel.ModelInfo, file configmodel.FileInfo) error {
+	path := c.getYangPath(model, file)
+	log.Debugf("Copying YANG module '%s' to '%s'", file.Name, path)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		err := ioutil.WriteFile(path, module.Data, os.ModePerm)
+		err := ioutil.WriteFile(path, file.Data, os.ModePerm)
 		if err != nil {
-			log.Errorf("Copying YANG module '%s/%s' failed: %v", module.Name, module.Version, err)
+			log.Errorf("Copying YANG module '%s' failed: %v", file.Name, err)
 			return err
 		}
 	}
@@ -255,7 +255,7 @@ func (c *PluginCompiler) generateYangBindings(model configmodel.ModelInfo) error
 	}
 
 	for _, module := range model.Modules {
-		args = append(args, c.getYangFile(module))
+		args = append(args, module.File)
 	}
 
 	cmd := exec.Command("go", args...)
@@ -481,12 +481,8 @@ func (c *PluginCompiler) getYangDir(model configmodel.ModelInfo) string {
 	return filepath.Join(c.getModuleDir(model), yangDir)
 }
 
-func (c *PluginCompiler) getYangPath(model configmodel.ModelInfo, module configmodel.ModuleInfo) string {
-	return filepath.Join(c.getYangDir(model), c.getYangFile(module))
-}
-
-func (c *PluginCompiler) getYangFile(module configmodel.ModuleInfo) string {
-	return fmt.Sprintf("%s@%s.yang", module.Name, module.Version)
+func (c *PluginCompiler) getYangPath(model configmodel.ModelInfo, file configmodel.FileInfo) string {
+	return filepath.Join(c.getYangDir(model), file.Name)
 }
 
 func (c *PluginCompiler) getSafeQualifiedName(model configmodel.ModelInfo) string {

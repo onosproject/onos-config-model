@@ -63,6 +63,7 @@ func getCompileCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			version, _ := cmd.Flags().GetString("version")
+			files, _ := cmd.Flags().GetStringSlice("file")
 			modules, _ := cmd.Flags().GetStringToString("module")
 			outputPath, _ := cmd.Flags().GetString("output-path")
 			target, _ := cmd.Flags().GetString("target")
@@ -81,26 +82,33 @@ func getCompileCmd() *cobra.Command {
 			modelInfo := configmodel.ModelInfo{
 				Name:    configmodel.Name(name),
 				Version: configmodel.Version(version),
-				Modules: []configmodel.ModuleInfo{},
 				Plugin: configmodel.PluginInfo{
 					Name:    configmodel.Name(name),
 					Version: configmodel.Version(version),
 				},
 			}
-			for nameVersion, module := range modules {
-				names := strings.Split(nameVersion, "@")
-				if len(names) != 2 {
-					return errors.New("module name must be in the format $name@$version")
-				}
-				name, version := names[0], names[1]
-				data, err := ioutil.ReadFile(module)
+
+			for _, fileName := range files {
+				data, err := ioutil.ReadFile(fileName)
 				if err != nil {
 					return err
 				}
+				modelInfo.Files = append(modelInfo.Files, configmodel.FileInfo{
+					Name: fileName,
+					Data: data,
+				})
+			}
+
+			for nameRevision, file := range modules {
+				names := strings.Split(nameRevision, "@")
+				if len(names) != 2 {
+					return errors.New("module name must be in the format $name@$revision")
+				}
+				name, revision := names[0], names[1]
 				modelInfo.Modules = append(modelInfo.Modules, configmodel.ModuleInfo{
-					Name:    configmodel.Name(name),
-					Version: configmodel.Version(version),
-					Data:    data,
+					Name:     configmodel.Name(name),
+					Revision: configmodel.Revision(revision),
+					File:     file,
 				})
 			}
 
@@ -124,7 +132,8 @@ func getCompileCmd() *cobra.Command {
 	}
 	cmd.Flags().StringP("name", "n", "", "the model name")
 	cmd.Flags().StringP("version", "v", "", "the model version")
-	cmd.Flags().StringToStringP("module", "m", map[string]string{}, "model files")
+	cmd.Flags().StringSliceP("file", "f", []string{}, "model files")
+	cmd.Flags().StringToStringP("module", "m", map[string]string{}, "model module descriptors")
 	cmd.Flags().StringP("target", "t", "", "the target Go module")
 	cmd.Flags().StringP("replace", "r", "", "the replace Go module")
 	cmd.Flags().StringP("build-path", "b", "", "the build path")
@@ -254,8 +263,8 @@ func getRegistryGetCmd() *cobra.Command {
 				moduleInfos = append(moduleInfos, configmodel.ModuleInfo{
 					Name:         configmodel.Name(module.Name),
 					Organization: module.Organization,
-					Version:      configmodel.Version(module.Version),
-					Data:         module.Data,
+					Revision:     configmodel.Revision(module.Revision),
+					File:         module.File,
 				})
 			}
 
@@ -309,8 +318,8 @@ func getRegistryListCmd() *cobra.Command {
 					moduleInfos = append(moduleInfos, configmodel.ModuleInfo{
 						Name:         configmodel.Name(module.Name),
 						Organization: module.Organization,
-						Version:      configmodel.Version(module.Version),
-						Data:         module.Data,
+						Revision:     configmodel.Revision(module.Revision),
+						File:         module.File,
 					})
 				}
 				model := configmodel.ModelInfo{
@@ -344,6 +353,7 @@ func getRegistryPushCmd() *cobra.Command {
 			address, _ := cmd.Flags().GetString("address")
 			name, _ := cmd.Flags().GetString("name")
 			version, _ := cmd.Flags().GetString("version")
+			files, _ := cmd.Flags().GetStringSlice("file")
 			modules, _ := cmd.Flags().GetStringToString("module")
 			conn, err := connect(address)
 			if err != nil {
@@ -356,20 +366,25 @@ func getRegistryPushCmd() *cobra.Command {
 				Version: version,
 				Modules: []*configmodelapi.ConfigModule{},
 			}
-			for nameVersion, module := range modules {
-				names := strings.Split(nameVersion, "@")
-				if len(names) != 2 {
-					return errors.New("module name must be in the format $name@$version")
-				}
-				name, version := names[0], names[1]
-				data, err := ioutil.ReadFile(module)
+
+			for _, fileName := range files {
+				data, err := ioutil.ReadFile(fileName)
 				if err != nil {
 					return err
 				}
+				model.Files[fileName] = string(data)
+			}
+
+			for nameRevision, file := range modules {
+				names := strings.Split(nameRevision, "@")
+				if len(names) != 2 {
+					return errors.New("module name must be in the format $name@$revision")
+				}
+				name, revision := names[0], names[1]
 				model.Modules = append(model.Modules, &configmodelapi.ConfigModule{
-					Name:    name,
-					Version: version,
-					Data:    data,
+					Name:     name,
+					Revision: revision,
+					File:     file,
 				})
 			}
 
@@ -384,8 +399,9 @@ func getRegistryPushCmd() *cobra.Command {
 	}
 	cmd.Flags().StringP("address", "a", "localhost:5151", "the registry address")
 	cmd.Flags().StringP("name", "n", "", "the model name")
-	cmd.Flags().StringP("version", "v", "", "the model version")
-	cmd.Flags().StringToStringP("module", "m", map[string]string{}, "model files")
+	cmd.Flags().StringP("revision", "r", "", "the model revision")
+	cmd.Flags().StringSliceP("file", "f", []string{}, "model files")
+	cmd.Flags().StringToStringP("module", "m", map[string]string{}, "model module descriptors")
 	return cmd
 }
 
