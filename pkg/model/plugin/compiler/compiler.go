@@ -19,8 +19,15 @@ import (
 	"fmt"
 	"github.com/onosproject/onos-config-model/pkg/model"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
+	_ "github.com/openconfig/gnmi/proto/gnmi" // gnmi
+	_ "github.com/openconfig/goyang/pkg/yang" // yang
+	_ "github.com/openconfig/ygot/genutil"    // genutil
+	_ "github.com/openconfig/ygot/ygen"       // ygen
+	_ "github.com/openconfig/ygot/ygot"       // ygot
+	_ "github.com/openconfig/ygot/ytypes"     // ytypes
 	"github.com/rogpeppe/go-internal/modfile"
 	"github.com/rogpeppe/go-internal/module"
+	_ "google.golang.org/protobuf/proto" // proto
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -28,14 +35,6 @@ import (
 	"runtime"
 	"strings"
 	"text/template"
-
-	_ "github.com/openconfig/gnmi/proto/gnmi" // gnmi
-	_ "github.com/openconfig/goyang/pkg/yang" // yang
-	_ "github.com/openconfig/ygot/genutil"    // genutil
-	_ "github.com/openconfig/ygot/ygen"       // ygen
-	_ "github.com/openconfig/ygot/ygot"       // ygot
-	_ "github.com/openconfig/ygot/ytypes"     // ytypes
-	_ "google.golang.org/protobuf/proto"      // proto
 )
 
 var log = logging.GetLogger("config-model", "compiler")
@@ -126,46 +125,46 @@ func (c *PluginCompiler) CompilePlugin(model configmodel.ModelInfo) error {
 	// Create the module files
 	c.createDir(c.getModuleDir(model))
 	if err := c.generateMod(model); err != nil {
-		log.Errorf("Compiling ConfigModel '%s/%s' failed: %v", model.Name, model.Version, err)
+		log.Errorf("Compiling ConfigModel '%s/%s' failed: %s", model.Name, model.Version, err)
 		return err
 	}
 	if err := c.generateMain(model); err != nil {
-		log.Errorf("Compiling ConfigModel '%s/%s' failed: %v", model.Name, model.Version, err)
+		log.Errorf("Compiling ConfigModel '%s/%s' failed: %s", model.Name, model.Version, err)
 		return err
 	}
 
 	// Create the model plugin
 	c.createDir(c.getModelDir(model))
 	if err := c.generateConfigModel(model); err != nil {
-		log.Errorf("Compiling ConfigModel '%s/%s' failed: %v", model.Name, model.Version, err)
+		log.Errorf("Compiling ConfigModel '%s/%s' failed: %s", model.Name, model.Version, err)
 		return err
 	}
 	if err := c.generateModelPlugin(model); err != nil {
-		log.Errorf("Compiling ConfigModel '%s/%s' failed: %v", model.Name, model.Version, err)
+		log.Errorf("Compiling ConfigModel '%s/%s' failed: %s", model.Name, model.Version, err)
 		return err
 	}
 
 	// Generate the YANG bindings
 	c.createDir(c.getYangDir(model))
 	if err := c.copyFiles(model); err != nil {
-		log.Errorf("Compiling ConfigModel '%s/%s' failed: %v", model.Name, model.Version, err)
+		log.Errorf("Compiling ConfigModel '%s/%s' failed: %s", model.Name, model.Version, err)
 		return err
 	}
 	if err := c.generateYangBindings(model); err != nil {
-		log.Errorf("Compiling ConfigModel '%s/%s' failed: %v", model.Name, model.Version, err)
+		log.Errorf("Compiling ConfigModel '%s/%s' failed: %s", model.Name, model.Version, err)
 		return err
 	}
 
 	// Compile the plugin
 	c.createDir(c.Config.OutputPath)
 	if err := c.compilePlugin(model); err != nil {
-		log.Errorf("Compiling ConfigModel '%s/%s' failed: %v", model.Name, model.Version, err)
+		log.Errorf("Compiling ConfigModel '%s/%s' failed: %s", model.Name, model.Version, err)
 		return err
 	}
 
 	// Clean up the build
 	if err := c.cleanBuild(model); err != nil {
-		log.Errorf("Compiling ConfigModel '%s/%s' failed: %v", model.Name, model.Version, err)
+		log.Errorf("Compiling ConfigModel '%s/%s' failed: %s", model.Name, model.Version, err)
 		return err
 	}
 	return nil
@@ -195,7 +194,7 @@ func (c *PluginCompiler) compilePlugin(model configmodel.ModelInfo) error {
 	log.Infof("Compiling plugin '%s'", path)
 	_, err := c.exec(c.getModuleDir(model), "go", "build", "-o", path, "-buildmode=plugin", c.getPluginMod(model))
 	if err != nil {
-		log.Errorf("Compiling plugin '%s' failed: %v", path, err)
+		log.Errorf("Compiling plugin '%s' failed: %s", path, err)
 		return err
 	}
 	return nil
@@ -235,7 +234,7 @@ func (c *PluginCompiler) copyFile(model configmodel.ModelInfo, file configmodel.
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		err := ioutil.WriteFile(path, file.Data, os.ModePerm)
 		if err != nil {
-			log.Errorf("Copying YANG module '%s' failed: %v", file.Path, err)
+			log.Errorf("Copying YANG module '%s' failed: %s", file.Path, err)
 			return err
 		}
 	}
@@ -264,7 +263,7 @@ func (c *PluginCompiler) generateYangBindings(model configmodel.ModelInfo) error
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		log.Errorf("Generating YANG bindings '%s' failed: %v", path, err)
+		log.Errorf("Generating YANG bindings '%s' failed: %s", path, err)
 		return err
 	}
 	return nil
@@ -286,11 +285,11 @@ func (c *PluginCompiler) generateTemplate(model configmodel.ModelInfo, template,
 	log.Debugf("Generating '%s'", outPath)
 	info, err := c.getTemplateInfo(model)
 	if err != nil {
-		log.Errorf("Generating '%s' failed: %v", outPath, err)
+		log.Errorf("Generating '%s' failed: %s", outPath, err)
 		return err
 	}
 	if err := applyTemplate(template, inPath, outPath, info); err != nil {
-		log.Errorf("Generating '%s' failed: %v", outPath, err)
+		log.Errorf("Generating '%s' failed: %s", outPath, err)
 		return err
 	}
 	return nil
@@ -493,7 +492,7 @@ func (c *PluginCompiler) createDir(dir string) {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		log.Debugf("Creating '%s'", dir)
 		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-			log.Errorf("Creating '%s' failed: %v", dir, err)
+			log.Errorf("Creating '%s' failed: %s", dir, err)
 		}
 	}
 }
@@ -502,7 +501,7 @@ func (c *PluginCompiler) removeDir(dir string) {
 	if _, err := os.Stat(dir); err == nil {
 		log.Debugf("Removing '%s'", dir)
 		if err := os.RemoveAll(dir); err != nil {
-			log.Errorf("Removing '%s' failed: %v", dir, err)
+			log.Errorf("Removing '%s' failed: %s", dir, err)
 		}
 	}
 }
