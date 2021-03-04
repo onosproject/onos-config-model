@@ -70,8 +70,8 @@ func (s *Server) GetModel(ctx context.Context, request *configmodelapi.GetModelR
 		modules = append(modules, &configmodelapi.ConfigModule{
 			Name:         string(moduleInfo.Name),
 			Organization: moduleInfo.Organization,
-			Version:      string(moduleInfo.Version),
-			Data:         moduleInfo.Data,
+			Revision:     string(moduleInfo.Revision),
+			File:         moduleInfo.File,
 		})
 	}
 	response := &configmodelapi.GetModelResponse{
@@ -101,8 +101,8 @@ func (s *Server) ListModels(ctx context.Context, request *configmodelapi.ListMod
 			modules = append(modules, &configmodelapi.ConfigModule{
 				Name:         string(module.Name),
 				Organization: module.Organization,
-				Version:      string(module.Version),
-				Data:         module.Data,
+				Revision:     string(module.Revision),
+				File:         module.File,
 			})
 		}
 		models = append(models, &configmodelapi.ConfigModel{
@@ -121,24 +121,35 @@ func (s *Server) ListModels(ctx context.Context, request *configmodelapi.ListMod
 // PushModel :
 func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushModelRequest) (*configmodelapi.PushModelResponse, error) {
 	log.Debugf("Received PushModelRequest %+v", request)
-	var moduleInfos []configmodel.ModuleInfo
-	for _, module := range request.Model.Modules {
-		moduleInfos = append(moduleInfos, configmodel.ModuleInfo{
-			Name:         configmodel.Name(module.Name),
-			Organization: module.Organization,
-			Version:      configmodel.Version(module.Version),
-			Data:         module.Data,
+	fileInfos := make([]configmodel.FileInfo, 0, len(request.Model.Files))
+	for path, data := range request.Model.Files {
+		fileInfos = append(fileInfos, configmodel.FileInfo{
+			Path: path,
+			Data: []byte(data),
 		})
 	}
+
+	moduleInfos := make([]configmodel.ModuleInfo, len(request.Model.Modules))
+	for i, module := range request.Model.Modules {
+		moduleInfos[i] = configmodel.ModuleInfo{
+			Name:         configmodel.Name(module.Name),
+			File:         module.File,
+			Organization: module.Organization,
+			Revision:     configmodel.Revision(module.Revision),
+		}
+	}
+
 	modelInfo := configmodel.ModelInfo{
 		Name:    configmodel.Name(request.Model.Name),
 		Version: configmodel.Version(request.Model.Version),
+		Files:   fileInfos,
 		Modules: moduleInfos,
 		Plugin: configmodel.PluginInfo{
 			Name:    configmodel.Name(request.Model.Name),
 			Version: configmodel.Version(request.Model.Version),
 		},
 	}
+
 	err := s.compiler.CompilePlugin(modelInfo)
 	if err != nil {
 		log.Warnf("PushModelRequest %+v failed: %v", request, err)

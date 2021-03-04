@@ -17,8 +17,7 @@ const (
 
 var modelData = []*gnmi.ModelData{
     {{- range .Model.Modules }}
-	{Name: {{ .Name | quote }}, Organization: {{ .Organization | quote }}, Version: {{ .Version | quote }}},
-	{Name: {{ .Name | quote }}, Organization: {{ .Organization | quote }}, Version: {{ .Version | quote }}},
+	{Name: {{ .Name | quote }}, Organization: {{ .Organization | quote }}, Version: {{ .Revision | quote }}},
 	{{- end }}
 }
 

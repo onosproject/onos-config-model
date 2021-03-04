@@ -43,8 +43,14 @@ func TestCompiler(t *testing.T) {
 			{
 				Name:         "test",
 				Organization: "ONF",
-				Version:      "2020-11-18",
-				Data:         bytes,
+				Revision:     "2020-11-18",
+				File:         "test.yang",
+			},
+		},
+		Files: []configmodel.FileInfo{
+			{
+				Path: "test@2020-11-18.yang",
+				Data: bytes,
 			},
 		},
 		Plugin: configmodel.PluginInfo{
