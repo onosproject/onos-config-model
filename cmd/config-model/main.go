@@ -88,13 +88,13 @@ func getCompileCmd() *cobra.Command {
 				},
 			}
 
-			for _, fileName := range files {
-				data, err := ioutil.ReadFile(fileName)
+			for _, path := range files {
+				data, err := ioutil.ReadFile(path)
 				if err != nil {
 					return err
 				}
 				modelInfo.Files = append(modelInfo.Files, configmodel.FileInfo{
-					Name: fileName,
+					Path: path,
 					Data: data,
 				})
 			}
@@ -367,12 +367,12 @@ func getRegistryPushCmd() *cobra.Command {
 				Modules: []*configmodelapi.ConfigModule{},
 			}
 
-			for _, fileName := range files {
-				data, err := ioutil.ReadFile(fileName)
+			for _, path := range files {
+				data, err := ioutil.ReadFile(path)
 				if err != nil {
 					return err
 				}
-				model.Files[fileName] = string(data)
+				model.Files[filepath.Base(path)] = string(data)
 			}
 
 			for nameRevision, file := range modules {

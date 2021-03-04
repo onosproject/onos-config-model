@@ -231,11 +231,11 @@ func (c *PluginCompiler) copyFiles(model configmodel.ModelInfo) error {
 
 func (c *PluginCompiler) copyFile(model configmodel.ModelInfo, file configmodel.FileInfo) error {
 	path := c.getYangPath(model, file)
-	log.Debugf("Copying YANG module '%s' to '%s'", file.Name, path)
+	log.Debugf("Copying YANG module '%s' to '%s'", file.Path, path)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		err := ioutil.WriteFile(path, file.Data, os.ModePerm)
 		if err != nil {
-			log.Errorf("Copying YANG module '%s' failed: %v", file.Name, err)
+			log.Errorf("Copying YANG module '%s' failed: %v", file.Path, err)
 			return err
 		}
 	}
@@ -482,7 +482,7 @@ func (c *PluginCompiler) getYangDir(model configmodel.ModelInfo) string {
 }
 
 func (c *PluginCompiler) getYangPath(model configmodel.ModelInfo, file configmodel.FileInfo) string {
-	return filepath.Join(c.getYangDir(model), file.Name)
+	return filepath.Join(c.getYangDir(model), filepath.Base(file.Path))
 }
 
 func (c *PluginCompiler) getSafeQualifiedName(model configmodel.ModelInfo) string {

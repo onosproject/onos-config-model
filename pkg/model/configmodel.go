@@ -67,7 +67,7 @@ type ModuleInfo struct {
 
 // FileInfo is a config file info
 type FileInfo struct {
-	Name string `json:"name"`
+	Path string `json:"path"`
 	Data []byte `json:"data"`
 }
 
