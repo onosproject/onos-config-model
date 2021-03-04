@@ -41,7 +41,7 @@ func TestRegistry(t *testing.T) {
 				Name:         "bar",
 				Organization: "ONF",
 				Revision:     "0.1.0",
-				Data:         []byte("Hello world!"),
+				File:         "bar",
 			},
 		},
 		Plugin: configmodel.PluginInfo{
