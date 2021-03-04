@@ -49,7 +49,7 @@ func TestCompiler(t *testing.T) {
 		},
 		Files: []configmodel.FileInfo{
 			{
-				Name: "test.yang",
+				Path: "test@2020-11-18.yang",
 				Data: bytes,
 			},
 		},
