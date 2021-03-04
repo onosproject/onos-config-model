@@ -122,9 +122,9 @@ func (s *Server) ListModels(ctx context.Context, request *configmodelapi.ListMod
 func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushModelRequest) (*configmodelapi.PushModelResponse, error) {
 	log.Debugf("Received PushModelRequest %+v", request)
 	fileInfos := make([]configmodel.FileInfo, 0, len(request.Model.Files))
-	for name, data := range request.Model.Files {
+	for path, data := range request.Model.Files {
 		fileInfos = append(fileInfos, configmodel.FileInfo{
-			Name: name,
+			Path: path,
 			Data: []byte(data),
 		})
 	}
