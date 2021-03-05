@@ -15,8 +15,10 @@
 package modelregistry
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gofrs/flock"
 	"github.com/onosproject/onos-config-model/pkg/model"
 	"github.com/onosproject/onos-config-model/pkg/model/plugin"
 	"github.com/onosproject/onos-lib-go/pkg/errors"
@@ -26,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const jsonExt = ".json"
@@ -38,6 +41,11 @@ const (
 
 const (
 	defaultTarget = "github.com/onosproject/onos-config"
+)
+
+const (
+	lockFileName     = "registry.lock"
+	lockAttemptDelay = 5 * time.Second
 )
 
 var log = logging.GetLogger("config-model", "registry")
@@ -57,6 +65,7 @@ func NewConfigModelRegistry(config Config) *ConfigModelRegistry {
 	}
 	return &ConfigModelRegistry{
 		Config: config,
+		lock:   flock.New(filepath.Join(config.Path, lockFileName)),
 	}
 }
 
@@ -73,10 +82,56 @@ func NewConfigModelRegistryFromEnv() *ConfigModelRegistry {
 // ConfigModelRegistry is a registry of config models
 type ConfigModelRegistry struct {
 	Config Config
+	lock   *flock.Flock
+}
+
+// Lock acquires a write lock on the registry
+func (r *ConfigModelRegistry) Lock() error {
+	succeeded, err := r.lock.TryLockContext(context.Background(), lockAttemptDelay)
+	if err != nil {
+		return errors.NewInternal(err.Error())
+	} else if !succeeded {
+		return errors.NewConflict("failed to acquire registry lock")
+	}
+	return nil
+}
+
+// IsLocked checks whether the registry is write locked
+func (r *ConfigModelRegistry) IsLocked() bool {
+	return r.lock.Locked()
+}
+
+// Unlock releases a write lock from the registry
+func (r *ConfigModelRegistry) Unlock() error {
+	return r.lock.Unlock()
+}
+
+// RLock acquires a read lock on the registry
+func (r *ConfigModelRegistry) RLock() error {
+	succeeded, err := r.lock.TryRLockContext(context.Background(), lockAttemptDelay)
+	if err != nil {
+		return errors.NewInternal(err.Error())
+	} else if !succeeded {
+		return errors.NewConflict("failed to acquire registry lock")
+	}
+	return nil
+}
+
+// IsRLocked checks whether the registry is read locked
+func (r *ConfigModelRegistry) IsRLocked() bool {
+	return r.lock.Locked() || r.lock.RLocked()
+}
+
+// RUnlock releases a read lock on the registry
+func (r *ConfigModelRegistry) RUnlock() error {
+	return r.lock.Unlock()
 }
 
 // GetModel gets a model by name and version
 func (r *ConfigModelRegistry) GetModel(name configmodel.Name, version configmodel.Version) (configmodel.ModelInfo, error) {
+	if !r.IsRLocked() {
+		return configmodel.ModelInfo{}, errors.NewConflict("registry is not locked")
+	}
 	path := r.getDescriptorFile(name, version)
 	log.Debugf("Loading model definition '%s'", path)
 	model, err := loadModel(path)
@@ -89,6 +144,10 @@ func (r *ConfigModelRegistry) GetModel(name configmodel.Name, version configmode
 
 // ListModels lists models in the registry
 func (r *ConfigModelRegistry) ListModels() ([]configmodel.ModelInfo, error) {
+	if !r.IsRLocked() {
+		return nil, errors.NewConflict("registry is not locked")
+	}
+
 	log.Debugf("Loading models from '%s'", r.Config.Path)
 	var modelFiles []string
 	err := filepath.Walk(r.Config.Path, func(file string, info os.FileInfo, err error) error {
@@ -117,6 +176,10 @@ func (r *ConfigModelRegistry) ListModels() ([]configmodel.ModelInfo, error) {
 
 // AddModel adds a model to the registry
 func (r *ConfigModelRegistry) AddModel(model configmodel.ModelInfo) error {
+	if !r.IsLocked() {
+		return errors.NewConflict("registry is not locked")
+	}
+
 	log.Debugf("Adding model '%s/%s' to registry '%s'", model.Name, model.Version, r.Config.Path)
 	bytes, err := json.MarshalIndent(model, "", "  ")
 	if err != nil {
@@ -134,6 +197,10 @@ func (r *ConfigModelRegistry) AddModel(model configmodel.ModelInfo) error {
 
 // RemoveModel removes a model from the registry
 func (r *ConfigModelRegistry) RemoveModel(name configmodel.Name, version configmodel.Version) error {
+	if !r.IsLocked() {
+		return errors.NewConflict("registry is not locked")
+	}
+
 	log.Debugf("Deleting model '%s/%s' from registry '%s'", name, version, r.Config.Path)
 	path := r.getDescriptorFile(name, version)
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -148,6 +215,9 @@ func (r *ConfigModelRegistry) RemoveModel(name configmodel.Name, version configm
 
 // LoadPlugin loads a plugin from the registry
 func (r *ConfigModelRegistry) LoadPlugin(name configmodel.Name, version configmodel.Version) (modelplugin.ConfigModelPlugin, error) {
+	if !r.IsRLocked() {
+		return nil, errors.NewConflict("registry is not locked")
+	}
 	return modelplugin.Load(r.getPluginFile(name, version))
 }
 
