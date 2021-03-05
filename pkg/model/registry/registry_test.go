@@ -16,6 +16,7 @@ package modelregistry
 
 import (
 	"github.com/onosproject/onos-config-model/pkg/model"
+	"github.com/onosproject/onos-lib-go/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
@@ -29,11 +30,15 @@ func TestRegistry(t *testing.T) {
 	}
 	registry := NewConfigModelRegistry(config)
 
+	_, err = registry.GetModel("foo", "1.0.0")
+	assert.Error(t, err)
+	assert.True(t, errors.IsNotFound(err))
+
 	models, err := registry.ListModels()
 	assert.NoError(t, err)
 	assert.Len(t, models, 0)
 
-	modelInfo := configmodel.ModelInfo{
+	model := configmodel.ModelInfo{
 		Name:    "foo",
 		Version: "1.0.0",
 		Modules: []configmodel.ModuleInfo{
@@ -49,8 +54,13 @@ func TestRegistry(t *testing.T) {
 			Version: "1.0.0",
 		},
 	}
-	err = registry.AddModel(modelInfo)
+	err = registry.AddModel(model)
 	assert.NoError(t, err)
+
+	model, err = registry.GetModel("foo", "1.0.0")
+	assert.NoError(t, err)
+	assert.Equal(t, configmodel.Name("foo"), model.Name)
+	assert.Equal(t, configmodel.Version("1.0.0"), model.Version)
 
 	models, err = registry.ListModels()
 	assert.NoError(t, err)
