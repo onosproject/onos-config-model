@@ -77,12 +77,42 @@ type ConfigModelRegistry struct {
 
 // GetModel gets a model by name and version
 func (r *ConfigModelRegistry) GetModel(name configmodel.Name, version configmodel.Version) (configmodel.ModelInfo, error) {
-	return loadModel(r.getDescriptorFile(name, version))
+	path := r.getDescriptorFile(name, version)
+	log.Debugf("Loading model definition '%s'", path)
+	model, err := loadModel(path)
+	if err != nil {
+		log.Warnf("Failed loading model definition '%s': %v", path, err)
+	}
+	log.Infof("Loaded model '%s': %s", path, model)
+	return model, err
 }
 
 // ListModels lists models in the registry
 func (r *ConfigModelRegistry) ListModels() ([]configmodel.ModelInfo, error) {
-	return loadModels(r.Config.Path)
+	log.Debugf("Loading models from '%s'", r.Config.Path)
+	var modelFiles []string
+	err := filepath.Walk(r.Config.Path, func(file string, info os.FileInfo, err error) error {
+		if err == nil && strings.HasSuffix(file, jsonExt) {
+			modelFiles = append(modelFiles, file)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.NewInternal(err.Error())
+	}
+
+	var models []configmodel.ModelInfo
+	for _, file := range modelFiles {
+		log.Debugf("Loading model definition '%s'", file)
+		model, err := loadModel(file)
+		if err != nil {
+			log.Warnf("Failed loading model definition '%s': %v", file, err)
+		} else {
+			log.Infof("Loaded model definition '%s': %s", file, model)
+			models = append(models, model)
+		}
+	}
+	return models, nil
 }
 
 // AddModel adds a model to the registry
@@ -129,49 +159,23 @@ func (r *ConfigModelRegistry) getDescriptorFile(name configmodel.Name, version c
 	return filepath.Join(r.Config.Path, fmt.Sprintf("%s-%s.json", name, version))
 }
 
-func loadModels(path string) ([]configmodel.ModelInfo, error) {
-	var modelFiles []string
-	err := filepath.Walk(path, func(file string, info os.FileInfo, err error) error {
-		if err == nil && strings.HasSuffix(file, jsonExt) {
-			modelFiles = append(modelFiles, file)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var models []configmodel.ModelInfo
-	for _, file := range modelFiles {
-		model, err := loadModel(file)
-		if err != nil {
-			return nil, err
-		}
-		models = append(models, model)
-	}
-	return models, nil
-}
-
 func loadModel(path string) (configmodel.ModelInfo, error) {
-	log.Debugf("Loading model definition '%s'", path)
+	var model configmodel.ModelInfo
 	bytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Errorf("Failed loading model '%s': %v", path, err)
-		return configmodel.ModelInfo{}, err
+		if os.IsNotExist(err) {
+			return model, errors.NewNotFound("Model definition '%s' not found", path)
+		}
+		return model, errors.NewUnknown(err.Error())
 	}
-	modelInfo := configmodel.ModelInfo{}
-	err = json.Unmarshal(bytes, &modelInfo)
+	err = json.Unmarshal(bytes, &model)
 	if err != nil {
-		log.Errorf("Failed decoding model definition '%s': %v", path, err)
-		return configmodel.ModelInfo{}, err
+		return model, errors.NewInvalid(err.Error())
 	}
-	if modelInfo.Name == "" || modelInfo.Version == "" {
-		err = errors.NewInvalid("%s is not a valid model descriptor", path)
-		log.Errorf("Failed decoding model definition '%s': %v", path, err)
-		return configmodel.ModelInfo{}, err
+	if model.Name == "" || model.Version == "" {
+		return model, errors.NewInvalid("'%s' is not a valid model descriptor", path)
 	}
-	log.Infof("Loaded model '%s': %s", path, bytes)
-	return modelInfo, nil
+	return model, nil
 }
 
 // GetPath :
@@ -179,7 +183,7 @@ func GetPath(dir, target, replace string) (string, error) {
 	if dir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return "", err
+			return "", errors.NewInternal(err.Error())
 		}
 		dir = cwd
 	}
@@ -207,7 +211,7 @@ func GetPath(dir, target, replace string) (string, error) {
 
 	encPath, err := module.EncodePath(path)
 	if err != nil {
-		return "", err
+		return "", errors.NewInternal(err.Error())
 	}
 
 	elems := []string{dir, encPath}

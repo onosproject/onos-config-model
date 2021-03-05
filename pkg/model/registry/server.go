@@ -19,6 +19,7 @@ import (
 	configmodelapi "github.com/onosproject/onos-api/go/onos/configmodel"
 	"github.com/onosproject/onos-config-model/pkg/model"
 	"github.com/onosproject/onos-config-model/pkg/model/plugin/compiler"
+	"github.com/onosproject/onos-lib-go/pkg/errors"
 	"github.com/onosproject/onos-lib-go/pkg/northbound"
 	"google.golang.org/grpc"
 	"os"
@@ -62,7 +63,7 @@ func (s *Server) GetModel(ctx context.Context, request *configmodelapi.GetModelR
 	modelInfo, err := s.registry.GetModel(configmodel.Name(request.Name), configmodel.Version(request.Version))
 	if err != nil {
 		log.Warnf("GetModelRequest %+v failed: %v", request, err)
-		return nil, err
+		return nil, errors.Status(err).Err()
 	}
 
 	var modules []*configmodelapi.ConfigModule
@@ -91,7 +92,7 @@ func (s *Server) ListModels(ctx context.Context, request *configmodelapi.ListMod
 	modelInfos, err := s.registry.ListModels()
 	if err != nil {
 		log.Warnf("ListModelsRequest %+v failed: %v", request, err)
-		return nil, err
+		return nil, errors.Status(err).Err()
 	}
 
 	var models []*configmodelapi.ConfigModel
@@ -121,6 +122,15 @@ func (s *Server) ListModels(ctx context.Context, request *configmodelapi.ListMod
 // PushModel :
 func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushModelRequest) (*configmodelapi.PushModelResponse, error) {
 	log.Debugf("Received PushModelRequest %+v", request)
+	_, err := s.registry.GetModel(configmodel.Name(request.Model.Name), configmodel.Version(request.Model.Version))
+	if err == nil {
+		err = errors.NewAlreadyExists("model '%s/%s' already exists", request.Model.Name, request.Model.Version)
+	}
+	if err != nil && !errors.IsNotFound(err) {
+		log.Warnf("PushModelRequest %+v failed: %v", request, err)
+		return nil, errors.Status(err).Err()
+	}
+
 	fileInfos := make([]configmodel.FileInfo, 0, len(request.Model.Files))
 	for path, data := range request.Model.Files {
 		fileInfos = append(fileInfos, configmodel.FileInfo{
@@ -150,14 +160,15 @@ func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushMode
 		},
 	}
 
-	err := s.compiler.CompilePlugin(modelInfo)
+	err = s.compiler.CompilePlugin(modelInfo)
 	if err != nil {
 		log.Warnf("PushModelRequest %+v failed: %v", request, err)
-		return nil, err
+		return nil, errors.Status(err).Err()
 	}
 	err = s.registry.AddModel(modelInfo)
 	if err != nil {
-		return nil, err
+		log.Warnf("PushModelRequest %+v failed: %v", request, err)
+		return nil, errors.Status(err).Err()
 	}
 	response := &configmodelapi.PushModelResponse{}
 	log.Debugf("Sending PushModelResponse %+v", response)
@@ -170,7 +181,7 @@ func (s *Server) DeleteModel(ctx context.Context, request *configmodelapi.Delete
 	err := s.registry.RemoveModel(configmodel.Name(request.Name), configmodel.Version(request.Version))
 	if err != nil {
 		log.Warnf("DeleteModelRequest %+v failed: %v", request, err)
-		return nil, err
+		return nil, errors.Status(err).Err()
 	}
 	path := filepath.Join(s.registry.Config.Path, s.registry.getPluginFile(configmodel.Name(request.Name), configmodel.Version(request.Version)))
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
