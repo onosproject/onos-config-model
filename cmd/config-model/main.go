@@ -19,7 +19,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
-	configmodelapi "github.com/onosproject/onos-config-model/api/onos/configmodel"
+	configmodelapi "github.com/onosproject/onos-api/go/onos/configmodel"
 	"github.com/onosproject/onos-config-model/pkg/model"
 	"github.com/onosproject/onos-config-model/pkg/model/plugin/compiler"
 	"github.com/onosproject/onos-config-model/pkg/model/registry"
