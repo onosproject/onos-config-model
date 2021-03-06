@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/onosproject/onos-config-model/pkg/model"
+	modules "github.com/onosproject/onos-config-model/pkg/model/plugin/module"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	_ "github.com/openconfig/gnmi/proto/gnmi" // gnmi
 	_ "github.com/openconfig/goyang/pkg/yang" // yang
@@ -25,9 +26,7 @@ import (
 	_ "github.com/openconfig/ygot/ygen"       // ygen
 	_ "github.com/openconfig/ygot/ygot"       // ygot
 	_ "github.com/openconfig/ygot/ytypes"     // ytypes
-	"github.com/rogpeppe/go-internal/modfile"
-	"github.com/rogpeppe/go-internal/module"
-	_ "google.golang.org/protobuf/proto" // proto
+	_ "google.golang.org/protobuf/proto"      // proto
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -99,6 +98,7 @@ func CompilePlugin(model configmodel.ModelInfo, config CompilerConfig) error {
 // CompilerConfig is a plugin compiler configuration
 type CompilerConfig struct {
 	TemplatePath string
+	ModPath      string
 	BuildPath    string
 	OutputPath   string
 	Target       string
@@ -334,104 +334,20 @@ func (c *PluginCompiler) getGoModCacheDir() (string, error) {
 
 func (c *PluginCompiler) fetchMod(model configmodel.ModelInfo) error {
 	log.Debugf("Generating '%s'", c.getModulePath(model, modFile))
-	tmpDir, err := ioutil.TempDir("", c.getSafeQualifiedName(model))
-	if err != nil {
-		log.Error(err)
-		return err
+	modsConfig := modules.ManagerConfig{
+		Path:    c.Config.ModPath,
+		Target:  c.Config.Target,
+		Replace: c.Config.Replace,
 	}
-	defer os.RemoveAll(tmpDir)
-
-	target := c.Config.Target
-	replace := c.Config.Replace
-	targetPath, _ := splitModPathVersion(target)
-
-	// Generate a temporary module with which to pull the target module
-	tmpMod := []byte("module m\n")
-	if replace != "" {
-		replacePath, replaceVersion := splitModPathVersion(replace)
-		tmpMod = append(tmpMod, []byte(fmt.Sprintf("replace %s => %s %s\n", targetPath, replacePath, replaceVersion))...)
-	}
-
-	// Write the temporary module file
-	tmpModPath := filepath.Join(tmpDir, modFile)
-	if err := ioutil.WriteFile(tmpModPath, tmpMod, 0666); err != nil {
-		log.Error(err)
-		return err
-	}
-
-	// Add the target dependency to the temporary module and download the target module
-	if _, err := c.exec(tmpDir, "go", "get", "-d", target); err != nil {
-		log.Error(err)
-		return err
-	}
-
-	// Read the updated go.mod for the temporary module
-	tmpMod, err = ioutil.ReadFile(tmpModPath)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-
-	// Parse the updated go.mod for the temporary module
-	tmpModFile, err := modfile.Parse(tmpModPath, tmpMod, nil)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-
-	// Determine the path/version for the target dependency
-	var depPath string
-	var depVersion string
-	if replace == "" {
-		for _, require := range tmpModFile.Require {
-			if require.Mod.Path == targetPath {
-				depPath = require.Mod.Path
-				depVersion = require.Mod.Version
-				break
-			}
-		}
-	} else {
-		for _, replace := range tmpModFile.Replace {
-			if replace.Old.Path == targetPath {
-				depPath = replace.New.Path
-				depVersion = replace.New.Version
-				break
-			}
-		}
-	}
-
-	// Encode the target dependency path
-	encPath, err := module.EncodePath(depPath)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	depPath = encPath
-
-	// Lookup the Go cache from the environment
-	modCache, err := c.getGoModCacheDir()
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-
-	// Read the target dependency go.mod from the cache
-	depModPath := filepath.Join(modCache, "cache", "download", depPath, "@v", depVersion+".mod")
-	depMod, err := ioutil.ReadFile(depModPath)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-
-	// Parse the target dependency go.mod
-	depModFile, err := modfile.Parse(depModPath, depMod, nil)
+	mods := modules.NewManager(modsConfig)
+	mod, _, err := mods.FetchMod()
 	if err != nil {
 		log.Error(err)
 		return err
 	}
 
 	// Rename the target dependency module to adopt its dependencies for the plugin module
-	pluginModFile := depModFile
+	pluginModFile := mod
 	if err := pluginModFile.AddModuleStmt(c.getPluginMod(model)); err != nil {
 		return err
 	}
