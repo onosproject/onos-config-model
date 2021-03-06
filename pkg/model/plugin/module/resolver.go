@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package module
+package pluginmodule
 
 import (
 	"crypto/md5"
@@ -37,31 +37,31 @@ import (
 var log = logging.GetLogger("config-model", "plugin", "module")
 
 const (
-	modFile  = "go.mod"
-	hashFile = "mod.md5"
+	modFile     = "go.mod"
+	hashFile    = "mod.md5"
 )
 
 // Hash is a module hash
 type Hash []byte
 
-// ManagerConfig is a module manager configuration
-type ManagerConfig struct {
+// ResolverConfig is a module resolver configuration
+type ResolverConfig struct {
 	Path    string
 	Target  string
 	Replace string
 }
 
-// NewManager creates a new model plugin compiler
-func NewManager(config ManagerConfig) *Manager {
-	return &Manager{config}
+// NewResolver creates a new module resolver
+func NewResolver(config ResolverConfig) *Resolver {
+	return &Resolver{config}
 }
 
-// Manager is a module manager
-type Manager struct {
-	Config ManagerConfig
+// Resolver is a module resolver
+type Resolver struct {
+	Config ResolverConfig
 }
 
-func (m *Manager) exec(dir string, name string, args ...string) (string, error) {
+func (r *Resolver) exec(dir string, name string, args ...string) (string, error) {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GO111MODULE=on", "CGO_ENABLED=1")
@@ -73,13 +73,13 @@ func (m *Manager) exec(dir string, name string, args ...string) (string, error) 
 	return string(out), nil
 }
 
-func (m *Manager) getGoEnv() (goEnv, error) {
+func (r *Resolver) getGoEnv() (goEnv, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return goEnv{}, err
 	}
 
-	envJSON, err := m.exec(wd, "go", "env", "-json", "GOPATH", "GOMODCACHE")
+	envJSON, err := r.exec(wd, "go", "env", "-json", "GOPATH", "GOMODCACHE")
 	if err != nil {
 		return goEnv{}, err
 	}
@@ -90,8 +90,8 @@ func (m *Manager) getGoEnv() (goEnv, error) {
 	return env, nil
 }
 
-func (m *Manager) getGoModCacheDir() (string, error) {
-	env, err := m.getGoEnv()
+func (r *Resolver) getGoModCacheDir() (string, error) {
+	env, err := r.getGoEnv()
 	if err != nil {
 		return "", err
 	}
@@ -103,21 +103,21 @@ func (m *Manager) getGoModCacheDir() (string, error) {
 	return modCache, nil
 }
 
-func (m *Manager) FetchMod() (*modfile.File, Hash, error) {
-	modPath := m.getModPath()
+func (r *Resolver) Resolve() (*modfile.File, Hash, error) {
+	modPath := r.getModPath()
 	modBytes, modErr := ioutil.ReadFile(modPath)
-	hashPath := m.getHashPath()
+	hashPath := r.getHashPath()
 	hashBytes, hashErr := ioutil.ReadFile(hashPath)
 	if modErr != nil || hashErr != nil {
-		mod, hash, err := m.fetchMod()
+		mod, hash, err := r.fetchMod()
 		modBytes, err := mod.Format()
 		if err != nil {
 			return nil, nil, err
 		}
-		if err := ioutil.WriteFile(m.getModPath(), modBytes, 0666); err != nil {
+		if err := ioutil.WriteFile(r.getModPath(), modBytes, 0666); err != nil {
 			return nil, nil, err
 		}
-		if err := ioutil.WriteFile(m.getHashPath(), hash, 0666); err != nil {
+		if err := ioutil.WriteFile(r.getHashPath(), hash, 0666); err != nil {
 			return nil, nil, err
 		}
 		return mod, hash, nil
@@ -129,8 +129,8 @@ func (m *Manager) FetchMod() (*modfile.File, Hash, error) {
 	return modFile, hashBytes, nil
 }
 
-func (m *Manager) fetchMod() (*modfile.File, Hash, error) {
-	target, replace := m.Config.Target, m.Config.Replace
+func (r *Resolver) fetchMod() (*modfile.File, Hash, error) {
+	target, replace := r.Config.Target, r.Config.Replace
 	targetPath, _, _ := module.SplitPathVersion(target)
 
 	log.Debugf("Fetching module '%s'", target)
@@ -156,7 +156,7 @@ func (m *Manager) fetchMod() (*modfile.File, Hash, error) {
 	}
 
 	// Add the target dependency to the temporary module and download the target module
-	if _, err := m.exec(tmpDir, "go", "get", "-d", target); err != nil {
+	if _, err := r.exec(tmpDir, "go", "get", "-d", target); err != nil {
 		log.Error(err)
 		return nil, nil, err
 	}
@@ -213,7 +213,7 @@ func (m *Manager) fetchMod() (*modfile.File, Hash, error) {
 	modPath = encPath
 
 	// Lookup the Go cache from the environment
-	modCache, err := m.getGoModCacheDir()
+	modCache, err := r.getGoModCacheDir()
 	if err != nil {
 		log.Error(err)
 		return nil, nil, err
@@ -243,12 +243,12 @@ func (m *Manager) fetchMod() (*modfile.File, Hash, error) {
 	return modFile, modHash, nil
 }
 
-func (m *Manager) getModPath() string {
-	return filepath.Join(m.Config.Path, modFile)
+func (r *Resolver) getModPath() string {
+	return filepath.Join(r.Config.Path, modFile)
 }
 
-func (m *Manager) getHashPath() string {
-	return filepath.Join(m.Config.Path, hashFile)
+func (r *Resolver) getHashPath() string {
+	return filepath.Join(r.Config.Path, hashFile)
 }
 
 type goEnv struct {
