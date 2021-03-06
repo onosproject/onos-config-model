@@ -64,6 +64,7 @@ type PluginCache struct {
 
 // Lock acquires a write lock on the cache
 func (c *PluginCache) Lock() error {
+	ensureDir(filepath.Join(c.Config.Path, lockFileName))
 	succeeded, err := c.lock.TryLockContext(context.Background(), lockAttemptDelay)
 	if err != nil {
 		return errors.NewInternal(err.Error())
@@ -85,6 +86,7 @@ func (c *PluginCache) Unlock() error {
 
 // RLock acquires a read lock on the cache
 func (c *PluginCache) RLock() error {
+	ensureDir(filepath.Join(c.Config.Path, lockFileName))
 	succeeded, err := c.lock.TryRLockContext(context.Background(), lockAttemptDelay)
 	if err != nil {
 		return errors.NewInternal(err.Error())
