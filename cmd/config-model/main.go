@@ -65,18 +65,13 @@ func getCompileCmd() *cobra.Command {
 			version, _ := cmd.Flags().GetString("version")
 			files, _ := cmd.Flags().GetStringSlice("file")
 			modules, _ := cmd.Flags().GetStringToString("module")
-			outputPath, _ := cmd.Flags().GetString("output-path")
+			registryPath, _ := cmd.Flags().GetString("output-path")
 			target, _ := cmd.Flags().GetString("target")
 			replace, _ := cmd.Flags().GetString("replace")
 
-			repoPath, err := modelregistry.GetPath(outputPath, target, replace)
-			if err != nil {
-				return err
-			}
-
 			buildPath, _ := cmd.Flags().GetString("build-path")
 			if buildPath == "" {
-				buildPath = filepath.Join(outputPath, "build")
+				buildPath = filepath.Join(registryPath, "build")
 			}
 
 			modelInfo := configmodel.ModelInfo{
@@ -113,7 +108,7 @@ func getCompileCmd() *cobra.Command {
 			}
 
 			registryConfig := modelregistry.Config{
-				Path: repoPath,
+				Path: registryPath,
 			}
 			registry := modelregistry.NewConfigModelRegistry(registryConfig)
 			if err := registry.Lock(); err != nil {
@@ -127,7 +122,7 @@ func getCompileCmd() *cobra.Command {
 			config := plugincompiler.CompilerConfig{
 				TemplatePath: "pkg/model/plugin/compiler/templates",
 				BuildPath:    buildPath,
-				OutputPath:   repoPath,
+				OutputPath:   registryPath,
 				Target:       target,
 				Replace:      replace,
 			}
@@ -176,11 +171,6 @@ func getRegistryServeCmd() *cobra.Command {
 			target, _ := cmd.Flags().GetString("target")
 			replace, _ := cmd.Flags().GetString("replace")
 
-			repoPath, err := modelregistry.GetPath(registryPath, target, replace)
-			if err != nil {
-				return err
-			}
-
 			buildPath, _ := cmd.Flags().GetString("build-path")
 			if buildPath == "" {
 				buildPath = filepath.Join(registryPath, "build")
@@ -203,7 +193,7 @@ func getRegistryServeCmd() *cobra.Command {
 			compilerConfig := plugincompiler.CompilerConfig{
 				TemplatePath: "pkg/model/plugin/compiler/templates",
 				BuildPath:    buildPath,
-				OutputPath:   repoPath,
+				OutputPath:   registryPath,
 				Target:       target,
 				Replace:      replace,
 			}
@@ -219,7 +209,7 @@ func getRegistryServeCmd() *cobra.Command {
 			}()
 
 			log.Infof("Starting registry server at '%s'", registryPath)
-			err = server.Serve(func(address string) {
+			err := server.Serve(func(address string) {
 				log.Infof("Serving models at '%s' on %s", registryPath, address)
 			})
 			if err != nil {
