@@ -61,11 +61,6 @@ type PluginCache struct {
 	lock     *flock.Flock
 }
 
-func (c *PluginCache) checkLock() error {
-	_, err := os.Create(filepath.Join(c.Config.Path, lockFileName))
-	return err
-}
-
 // Lock acquires a write lock on the cache
 func (c *PluginCache) Lock() error {
 	if err := c.checkLock(); err != nil {
@@ -114,14 +109,28 @@ func (c *PluginCache) RUnlock() error {
 	return c.lock.Unlock()
 }
 
-// GetPath gets the path of the given plugin
-func (c *PluginCache) GetPath(name configmodel.Name, version configmodel.Version) (string, error) {
+// checkLock ensures the lock file has been initialized with the correct permissions (0666)
+func (c *PluginCache) checkLock() error {
+	_, err := os.Create(filepath.Join(c.Config.Path, lockFileName))
+	return err
+}
+
+// getDir gets the cache directory for the module target
+func (c *PluginCache) getDir() (string, error) {
 	_, hash, err := c.resolver.Resolve()
 	if err != nil {
 		return "", err
 	}
-	dir := base64.URLEncoding.EncodeToString(hash)
-	return filepath.Join(c.Config.Path, dir, fmt.Sprintf("%s-%s.so", name, version)), nil
+	return filepath.Join(c.Config.Path, base64.URLEncoding.EncodeToString(hash)), nil
+}
+
+// GetPath gets the path of the given plugin
+func (c *PluginCache) GetPath(name configmodel.Name, version configmodel.Version) (string, error) {
+	dir, err := c.getDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, fmt.Sprintf("%s-%s.so", name, version)), nil
 }
 
 // Cached returns whether the given plugin is cached
