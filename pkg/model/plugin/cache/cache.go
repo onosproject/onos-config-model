@@ -139,18 +139,18 @@ func (c *PluginCache) getLock() (*flock.Flock, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	dir, err := c.getDir()
+	cacheDir, err := c.getModCache()
 	if err != nil {
 		return nil, err
 	}
 
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+	if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(cacheDir, os.ModePerm); err != nil {
 			return nil, err
 		}
 	}
 
-	file := filepath.Join(dir, lockFileName)
+	file := filepath.Join(cacheDir, lockFileName)
 	if _, err = os.Create(file); err != nil {
 		return nil, err
 	}
@@ -160,8 +160,8 @@ func (c *PluginCache) getLock() (*flock.Flock, error) {
 	return lock, nil
 }
 
-// getDir gets the cache directory for the module target
-func (c *PluginCache) getDir() (string, error) {
+// getModCache gets the cache directory for the module target
+func (c *PluginCache) getModCache() (string, error) {
 	_, hash, err := c.resolver.Resolve()
 	if err != nil {
 		return "", err
@@ -171,11 +171,11 @@ func (c *PluginCache) getDir() (string, error) {
 
 // GetPath gets the path of the given plugin
 func (c *PluginCache) GetPath(name configmodel.Name, version configmodel.Version) (string, error) {
-	dir, err := c.getDir()
+	cacheDir, err := c.getModCache()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, fmt.Sprintf("%s-%s.so", name, version)), nil
+	return filepath.Join(cacheDir, fmt.Sprintf("%s-%s.so", name, version)), nil
 }
 
 // Cached returns whether the given plugin is cached
@@ -203,14 +203,4 @@ func (c *PluginCache) Load(name configmodel.Name, version configmodel.Version) (
 		return nil, err
 	}
 	return modelplugin.Load(path)
-}
-
-func openFH(file string) (*os.File, error) {
-	dir := filepath.Dir(file)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-			return nil, err
-		}
-	}
-	return os.OpenFile(file, os.O_CREATE|os.O_RDWR, os.FileMode(0666))
 }
