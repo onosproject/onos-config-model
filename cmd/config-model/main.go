@@ -21,7 +21,9 @@ import (
 	"errors"
 	configmodelapi "github.com/onosproject/onos-api/go/onos/configmodel"
 	"github.com/onosproject/onos-config-model/pkg/model"
+	plugincache "github.com/onosproject/onos-config-model/pkg/model/plugin/cache"
 	"github.com/onosproject/onos-config-model/pkg/model/plugin/compiler"
+	"github.com/onosproject/onos-config-model/pkg/model/plugin/module"
 	"github.com/onosproject/onos-config-model/pkg/model/registry"
 	"github.com/onosproject/onos-lib-go/pkg/certs"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
@@ -39,6 +41,13 @@ import (
 
 var log = logging.GetLogger("config-model")
 
+const (
+	defaultCachePath    = "/etc/onos/plugins"
+	defaultRegistryPath = "/etc/onos/registry"
+	defaultModPath      = "/etc/onos/mod"
+	defaultBuildPath    = "/etc/onos/build"
+)
+
 func main() {
 	if err := getCmd().Execute(); err != nil {
 		println(err)
@@ -52,6 +61,7 @@ func getCmd() *cobra.Command {
 	}
 	cmd.AddCommand(getRegistryCmd())
 	cmd.AddCommand(getCompileCmd())
+	cmd.AddCommand(getInitCmd())
 	return cmd
 }
 
@@ -61,25 +71,49 @@ func getCompileCmd() *cobra.Command {
 		Short:        "Compile a config model plugin",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name, _ := cmd.Flags().GetString("name")
-			version, _ := cmd.Flags().GetString("version")
+			n, _ := cmd.Flags().GetString("name")
+			name := configmodel.Name(n)
+			v, _ := cmd.Flags().GetString("version")
+			version := configmodel.Version(v)
 			files, _ := cmd.Flags().GetStringSlice("file")
 			modules, _ := cmd.Flags().GetStringToString("module")
-			registryPath, _ := cmd.Flags().GetString("output-path")
-			target, _ := cmd.Flags().GetString("target")
-			replace, _ := cmd.Flags().GetString("replace")
-
+			cachePath, _ := cmd.Flags().GetString("cache-path")
 			buildPath, _ := cmd.Flags().GetString("build-path")
-			if buildPath == "" {
-				buildPath = filepath.Join(registryPath, "build")
+			modPath, _ := cmd.Flags().GetString("mod-path")
+			modTarget, _ := cmd.Flags().GetString("mod-target")
+			modReplace, _ := cmd.Flags().GetString("mod-replace")
+
+			resolverConfig := pluginmodule.ResolverConfig{
+				Path:    modPath,
+				Target:  modTarget,
+				Replace: modReplace,
+			}
+			resolver := pluginmodule.NewResolver(resolverConfig)
+
+			cacheConfig := plugincache.CacheConfig{
+				Path: cachePath,
+			}
+			cache := plugincache.NewPluginCache(cacheConfig, resolver)
+			if err := cache.Lock(); err != nil {
+				return err
+			}
+			defer func() {
+				_ = cache.Unlock()
+			}()
+
+			cached, err := cache.Cached(name, version)
+			if err != nil {
+				return err
+			} else if cached {
+				return nil
 			}
 
 			modelInfo := configmodel.ModelInfo{
-				Name:    configmodel.Name(name),
-				Version: configmodel.Version(version),
+				Name:    name,
+				Version: version,
 				Plugin: configmodel.PluginInfo{
-					Name:    configmodel.Name(name),
-					Version: configmodel.Version(version),
+					Name:    name,
+					Version: version,
 				},
 			}
 
@@ -107,42 +141,55 @@ func getCompileCmd() *cobra.Command {
 				})
 			}
 
-			registryConfig := modelregistry.Config{
-				Path: registryPath,
-			}
-			registry := modelregistry.NewConfigModelRegistry(registryConfig)
-			if err := registry.Lock(); err != nil {
+			path, err := cache.GetPath(name, version)
+			if err != nil {
 				return err
 			}
 
-			defer func() {
-				_ = registry.Unlock()
-			}()
-
-			config := plugincompiler.CompilerConfig{
-				TemplatePath: "pkg/model/plugin/compiler/templates",
-				BuildPath:    buildPath,
-				OutputPath:   registryPath,
-				Target:       target,
-				Replace:      replace,
+			compilerConfig := plugincompiler.CompilerConfig{
+				BuildPath: buildPath,
 			}
-			if err := plugincompiler.CompilePlugin(modelInfo, config); err != nil {
-				return err
-			}
-			if err := registry.AddModel(modelInfo); err != nil {
-				return err
-			}
-			return nil
+			compiler := plugincompiler.NewPluginCompiler(compilerConfig, resolver)
+			return compiler.CompilePlugin(modelInfo, path)
 		},
 	}
 	cmd.Flags().StringP("name", "n", "", "the model name")
 	cmd.Flags().StringP("version", "v", "", "the model version")
 	cmd.Flags().StringSliceP("file", "f", []string{}, "model files")
 	cmd.Flags().StringToStringP("module", "m", map[string]string{}, "model module descriptors")
-	cmd.Flags().StringP("target", "t", "", "the target Go module")
-	cmd.Flags().StringP("replace", "r", "", "the replace Go module")
-	cmd.Flags().StringP("build-path", "b", "", "the build path")
-	cmd.Flags().StringP("output-path", "o", "", "the output path")
+	cmd.Flags().StringP("mod-target", "t", "", "the target Go module")
+	cmd.Flags().StringP("mod-replace", "r", "", "the replace Go module")
+	cmd.Flags().StringP("mod-path", "p", defaultModPath, "the module path")
+	cmd.Flags().StringP("cache-path", "o", defaultCachePath, "the cache path")
+	cmd.Flags().StringP("build-path", "b", defaultBuildPath, "the build path")
+	return cmd
+}
+
+func getInitCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:          "init",
+		Short:        "Initializes the target module info",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			modPath, _ := cmd.Flags().GetString("mod-path")
+			modTarget, _ := cmd.Flags().GetString("mod-target")
+			modReplace, _ := cmd.Flags().GetString("mod-replace")
+			config := pluginmodule.ResolverConfig{
+				Path:    modPath,
+				Target:  modTarget,
+				Replace: modReplace,
+			}
+			manager := pluginmodule.NewResolver(config)
+			_, _, err := manager.Resolve()
+			if err != nil {
+				log.Errorf("Failed to initialize module '%s': %s", modTarget, err)
+			}
+			return err
+		},
+	}
+	cmd.Flags().StringP("mod-target", "t", "", "the target Go module")
+	cmd.Flags().StringP("mod-replace", "r", "", "the replace Go module")
+	cmd.Flags().StringP("mod-path", "p", defaultModPath, "the module path")
 	return cmd
 }
 
@@ -168,14 +215,11 @@ func getRegistryServeCmd() *cobra.Command {
 			cert, _ := cmd.Flags().GetString("cert")
 			key, _ := cmd.Flags().GetString("key")
 			registryPath, _ := cmd.Flags().GetString("registry-path")
-			target, _ := cmd.Flags().GetString("target")
-			replace, _ := cmd.Flags().GetString("replace")
-
+			cachePath, _ := cmd.Flags().GetString("cache-path")
 			buildPath, _ := cmd.Flags().GetString("build-path")
-			if buildPath == "" {
-				buildPath = filepath.Join(registryPath, "build")
-			}
-
+			modPath, _ := cmd.Flags().GetString("mod-path")
+			modTarget, _ := cmd.Flags().GetString("mod-target")
+			modReplace, _ := cmd.Flags().GetString("mod-replace")
 			port, _ := cmd.Flags().GetInt16("port")
 
 			server := northbound.NewServer(&northbound.ServerConfig{
@@ -187,18 +231,29 @@ func getRegistryServeCmd() *cobra.Command {
 				SecurityCfg: &northbound.SecurityConfig{},
 			})
 
+			resolverConfig := pluginmodule.ResolverConfig{
+				Path:    modPath,
+				Target:  modTarget,
+				Replace: modReplace,
+			}
+			resolver := pluginmodule.NewResolver(resolverConfig)
+
+			cacheConfig := plugincache.CacheConfig{
+				Path: cachePath,
+			}
+			cache := plugincache.NewPluginCache(cacheConfig, resolver)
+
+			compilerConfig := plugincompiler.CompilerConfig{
+				BuildPath: buildPath,
+			}
+			compiler := plugincompiler.NewPluginCompiler(compilerConfig, resolver)
+
 			registryConfig := modelregistry.Config{
 				Path: registryPath,
 			}
-			compilerConfig := plugincompiler.CompilerConfig{
-				TemplatePath: "pkg/model/plugin/compiler/templates",
-				BuildPath:    buildPath,
-				OutputPath:   registryPath,
-				Target:       target,
-				Replace:      replace,
-			}
+			registry := modelregistry.NewConfigModelRegistry(registryConfig)
 
-			service := modelregistry.NewService(modelregistry.NewConfigModelRegistry(registryConfig), plugincompiler.NewPluginCompiler(compilerConfig))
+			service := modelregistry.NewService(registry, cache, compiler)
 			server.AddService(service)
 
 			c := make(chan os.Signal, 1)
@@ -220,13 +275,15 @@ func getRegistryServeCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().Int16P("port", "p", 5151, "the registry service port")
-	cmd.Flags().String("registry-path", "", "the path in which to store the registry models")
-	cmd.Flags().String("build-path", "", "the path in which to store temporary build artifacts")
+	cmd.Flags().String("registry-path", defaultRegistryPath, "the path in which to store the registry models")
+	cmd.Flags().String("mod-path", defaultModPath, "the path in which to store the module info")
+	cmd.Flags().StringP("mod-target", "t", "", "the target Go module")
+	cmd.Flags().StringP("mod-replace", "r", "", "the replace Go module")
+	cmd.Flags().String("cache-path", defaultCachePath, "the path in which to store the plugins")
+	cmd.Flags().String("build-path", defaultBuildPath, "the path in which to store temporary build artifacts")
 	cmd.Flags().String("ca-cert", "", "the CA certificate")
 	cmd.Flags().String("cert", "", "the certificate")
 	cmd.Flags().String("key", "", "the key")
-	cmd.Flags().StringP("target", "t", "", "the target Go module")
-	cmd.Flags().StringP("replace", "r", "", "the replace Go module")
 	return cmd
 }
 

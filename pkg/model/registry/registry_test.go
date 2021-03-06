@@ -30,11 +30,6 @@ func TestRegistry(t *testing.T) {
 	}
 	registry := NewConfigModelRegistry(config)
 
-	err = registry.RLock()
-	assert.NoError(t, err)
-	assert.True(t, registry.IsRLocked())
-	assert.False(t, registry.IsLocked())
-
 	_, err = registry.GetModel("foo", "1.0.0")
 	assert.Error(t, err)
 	assert.True(t, errors.IsNotFound(err))
@@ -42,16 +37,6 @@ func TestRegistry(t *testing.T) {
 	models, err := registry.ListModels()
 	assert.NoError(t, err)
 	assert.Len(t, models, 0)
-
-	err = registry.RUnlock()
-	assert.NoError(t, err)
-	assert.False(t, registry.IsRLocked())
-	assert.False(t, registry.IsLocked())
-
-	err = registry.Lock()
-	assert.NoError(t, err)
-	assert.True(t, registry.IsLocked())
-	assert.True(t, registry.IsRLocked())
 
 	model := configmodel.ModelInfo{
 		Name:    "foo",
@@ -87,9 +72,4 @@ func TestRegistry(t *testing.T) {
 	models, err = registry.ListModels()
 	assert.NoError(t, err)
 	assert.Len(t, models, 0)
-
-	err = registry.Unlock()
-	assert.NoError(t, err)
-	assert.False(t, registry.IsLocked())
-	assert.False(t, registry.IsRLocked())
 }

@@ -15,9 +15,9 @@
 package plugincompiler
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/onosproject/onos-config-model/pkg/model"
+	"github.com/onosproject/onos-config-model/pkg/model/plugin/module"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	_ "github.com/openconfig/gnmi/proto/gnmi" // gnmi
 	_ "github.com/openconfig/goyang/pkg/yang" // yang
@@ -25,9 +25,7 @@ import (
 	_ "github.com/openconfig/ygot/ygen"       // ygen
 	_ "github.com/openconfig/ygot/ygot"       // ygot
 	_ "github.com/openconfig/ygot/ytypes"     // ytypes
-	"github.com/rogpeppe/go-internal/modfile"
-	"github.com/rogpeppe/go-internal/module"
-	_ "google.golang.org/protobuf/proto" // proto
+	_ "google.golang.org/protobuf/proto"      // proto
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -54,11 +52,15 @@ const (
 )
 
 const (
-	modFile       = "go.mod"
-	mainFile      = "main.go"
-	pluginFile    = "plugin.go"
-	modelFile     = "model.go"
-	modVersionSep = "@"
+	modFile    = "go.mod"
+	mainFile   = "main.go"
+	pluginFile = "plugin.go"
+	modelFile  = "model.go"
+)
+
+const (
+	defaultBuildPath    = "/etc/onos/build"
+	defaultTemplatePath = "pkg/model/plugin/compiler/templates"
 )
 
 var (
@@ -91,33 +93,35 @@ type TemplateInfo struct {
 	Compiler CompilerInfo
 }
 
-// CompilePlugin compiles a model plugin to the given path
-func CompilePlugin(model configmodel.ModelInfo, config CompilerConfig) error {
-	return NewPluginCompiler(config).CompilePlugin(model)
-}
-
 // CompilerConfig is a plugin compiler configuration
 type CompilerConfig struct {
 	TemplatePath string
 	BuildPath    string
-	OutputPath   string
-	Target       string
-	Replace      string
 }
 
 // NewPluginCompiler creates a new model plugin compiler
-func NewPluginCompiler(config CompilerConfig) *PluginCompiler {
-	return &PluginCompiler{config}
+func NewPluginCompiler(config CompilerConfig, resolver *pluginmodule.Resolver) *PluginCompiler {
+	if config.BuildPath == "" {
+		config.BuildPath = defaultBuildPath
+	}
+	if config.TemplatePath == "" {
+		config.TemplatePath = defaultTemplatePath
+	}
+	return &PluginCompiler{
+		Config:   config,
+		resolver: resolver,
+	}
 }
 
 // PluginCompiler is a model plugin compiler
 type PluginCompiler struct {
-	Config CompilerConfig
+	Config   CompilerConfig
+	resolver *pluginmodule.Resolver
 }
 
 // CompilePlugin compiles a model plugin to the given path
-func (c *PluginCompiler) CompilePlugin(model configmodel.ModelInfo) error {
-	log.Infof("Compiling ConfigModel '%s/%s' to '%s'", model.Name, model.Version, c.getPluginPath(model))
+func (c *PluginCompiler) CompilePlugin(model configmodel.ModelInfo, path string) error {
+	log.Infof("Compiling ConfigModel '%s/%s' to '%s'", model.Name, model.Version, path)
 
 	// Ensure the build directory exists
 	c.createDir(c.Config.BuildPath)
@@ -156,8 +160,8 @@ func (c *PluginCompiler) CompilePlugin(model configmodel.ModelInfo) error {
 	}
 
 	// Compile the plugin
-	c.createDir(c.Config.OutputPath)
-	if err := c.compilePlugin(model); err != nil {
+	c.createDir(filepath.Dir(path))
+	if err := c.compilePlugin(model, path); err != nil {
 		log.Errorf("Compiling ConfigModel '%s/%s' failed: %s", model.Name, model.Version, err)
 		return err
 	}
@@ -181,16 +185,11 @@ func (c *PluginCompiler) getTemplateInfo(model configmodel.ModelInfo) (TemplateI
 	}, nil
 }
 
-func (c *PluginCompiler) getPluginPath(model configmodel.ModelInfo) string {
-	return filepath.Join(c.Config.OutputPath, fmt.Sprintf("%s-%s.so", model.Plugin.Name, model.Plugin.Version))
-}
-
 func (c *PluginCompiler) getPluginMod(model configmodel.ModelInfo) string {
 	return fmt.Sprintf("github.com/onosproject/onos-config-model/%s", c.getSafeQualifiedName(model))
 }
 
-func (c *PluginCompiler) compilePlugin(model configmodel.ModelInfo) error {
-	path := c.getPluginPath(model)
+func (c *PluginCompiler) compilePlugin(model configmodel.ModelInfo, path string) error {
 	log.Infof("Compiling plugin '%s'", path)
 	_, err := c.exec(c.getModuleDir(model), "go", "build", "-o", path, "-buildmode=plugin", c.getPluginMod(model))
 	if err != nil {
@@ -296,142 +295,22 @@ func (c *PluginCompiler) generateTemplate(model configmodel.ModelInfo, template,
 }
 
 func (c *PluginCompiler) generateMod(model configmodel.ModelInfo) error {
-	if c.Config.Target == "" {
+	if c.resolver == nil {
 		return c.generateTemplate(model, modTemplate, c.getTemplatePath(modTemplate), c.getModulePath(model, modFile))
 	}
 	return c.fetchMod(model)
 }
 
-func (c *PluginCompiler) getGoEnv() (goEnv, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return goEnv{}, err
-	}
-
-	envJSON, err := c.exec(wd, "go", "env", "-json", "GOPATH", "GOMODCACHE")
-	if err != nil {
-		return goEnv{}, err
-	}
-	env := goEnv{}
-	if err := json.Unmarshal([]byte(envJSON), &env); err != nil {
-		return goEnv{}, err
-	}
-	return env, nil
-}
-
-func (c *PluginCompiler) getGoModCacheDir() (string, error) {
-	env, err := c.getGoEnv()
-	if err != nil {
-		return "", err
-	}
-	modCache := env.GOMODCACHE
-	if modCache == "" {
-		// For Go 1.14 and older.
-		return filepath.Join(env.GOPATH, "pkg", "mod"), nil
-	}
-	return modCache, nil
-}
-
 func (c *PluginCompiler) fetchMod(model configmodel.ModelInfo) error {
 	log.Debugf("Generating '%s'", c.getModulePath(model, modFile))
-	tmpDir, err := ioutil.TempDir("", c.getSafeQualifiedName(model))
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	defer os.RemoveAll(tmpDir)
-
-	target := c.Config.Target
-	replace := c.Config.Replace
-	targetPath, _ := splitModPathVersion(target)
-
-	// Generate a temporary module with which to pull the target module
-	tmpMod := []byte("module m\n")
-	if replace != "" {
-		replacePath, replaceVersion := splitModPathVersion(replace)
-		tmpMod = append(tmpMod, []byte(fmt.Sprintf("replace %s => %s %s\n", targetPath, replacePath, replaceVersion))...)
-	}
-
-	// Write the temporary module file
-	tmpModPath := filepath.Join(tmpDir, modFile)
-	if err := ioutil.WriteFile(tmpModPath, tmpMod, 0666); err != nil {
-		log.Error(err)
-		return err
-	}
-
-	// Add the target dependency to the temporary module and download the target module
-	if _, err := c.exec(tmpDir, "go", "get", "-d", target); err != nil {
-		log.Error(err)
-		return err
-	}
-
-	// Read the updated go.mod for the temporary module
-	tmpMod, err = ioutil.ReadFile(tmpModPath)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-
-	// Parse the updated go.mod for the temporary module
-	tmpModFile, err := modfile.Parse(tmpModPath, tmpMod, nil)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-
-	// Determine the path/version for the target dependency
-	var depPath string
-	var depVersion string
-	if replace == "" {
-		for _, require := range tmpModFile.Require {
-			if require.Mod.Path == targetPath {
-				depPath = require.Mod.Path
-				depVersion = require.Mod.Version
-				break
-			}
-		}
-	} else {
-		for _, replace := range tmpModFile.Replace {
-			if replace.Old.Path == targetPath {
-				depPath = replace.New.Path
-				depVersion = replace.New.Version
-				break
-			}
-		}
-	}
-
-	// Encode the target dependency path
-	encPath, err := module.EncodePath(depPath)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	depPath = encPath
-
-	// Lookup the Go cache from the environment
-	modCache, err := c.getGoModCacheDir()
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-
-	// Read the target dependency go.mod from the cache
-	depModPath := filepath.Join(modCache, "cache", "download", depPath, "@v", depVersion+".mod")
-	depMod, err := ioutil.ReadFile(depModPath)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-
-	// Parse the target dependency go.mod
-	depModFile, err := modfile.Parse(depModPath, depMod, nil)
+	mod, _, err := c.resolver.Resolve()
 	if err != nil {
 		log.Error(err)
 		return err
 	}
 
 	// Rename the target dependency module to adopt its dependencies for the plugin module
-	pluginModFile := depModFile
+	pluginModFile := mod
 	if err := pluginModFile.AddModuleStmt(c.getPluginMod(model)); err != nil {
 		return err
 	}
@@ -530,16 +409,4 @@ func applyTemplate(name, tplPath, outPath string, data TemplateInfo) error {
 	defer file.Close()
 
 	return tpl.Execute(file, data)
-}
-
-func splitModPathVersion(mod string) (string, string) {
-	if i := strings.Index(mod, modVersionSep); i >= 0 {
-		return mod[:i], mod[i+1:]
-	}
-	return mod, ""
-}
-
-type goEnv struct {
-	GOPATH     string
-	GOMODCACHE string
 }

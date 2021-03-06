@@ -18,18 +18,18 @@ import (
 	"context"
 	configmodelapi "github.com/onosproject/onos-api/go/onos/configmodel"
 	"github.com/onosproject/onos-config-model/pkg/model"
+	"github.com/onosproject/onos-config-model/pkg/model/plugin/cache"
 	"github.com/onosproject/onos-config-model/pkg/model/plugin/compiler"
 	"github.com/onosproject/onos-lib-go/pkg/errors"
 	"github.com/onosproject/onos-lib-go/pkg/northbound"
 	"google.golang.org/grpc"
-	"os"
-	"path/filepath"
 )
 
 // NewService :
-func NewService(registry *ConfigModelRegistry, compiler *plugincompiler.PluginCompiler) northbound.Service {
+func NewService(registry *ConfigModelRegistry, cache *plugincache.PluginCache, compiler *plugincompiler.PluginCompiler) northbound.Service {
 	return &Service{
 		registry: registry,
+		cache:    cache,
 		compiler: compiler,
 	}
 }
@@ -37,6 +37,7 @@ func NewService(registry *ConfigModelRegistry, compiler *plugincompiler.PluginCo
 // Service :
 type Service struct {
 	registry *ConfigModelRegistry
+	cache    *plugincache.PluginCache
 	compiler *plugincompiler.PluginCompiler
 }
 
@@ -44,6 +45,7 @@ type Service struct {
 func (s *Service) Register(r *grpc.Server) {
 	server := &Server{
 		registry: s.registry,
+		cache:    s.cache,
 		compiler: s.compiler,
 	}
 	configmodelapi.RegisterConfigModelRegistryServiceServer(r, server)
@@ -54,30 +56,15 @@ var _ northbound.Service = &Service{}
 // Server is a registry server
 type Server struct {
 	registry *ConfigModelRegistry
+	cache    *plugincache.PluginCache
 	compiler *plugincompiler.PluginCompiler
 }
 
 // GetModel :
 func (s *Server) GetModel(ctx context.Context, request *configmodelapi.GetModelRequest) (*configmodelapi.GetModelResponse, error) {
 	log.Debugf("Received GetModelRequest %+v", request)
-	if err := s.registry.RLock(); err != nil {
-		log.Errorf("Failed to acquire registry lock: %s", err)
-		return nil, errors.Status(err).Err()
-	}
-
-	defer func() {
-		if err := recover(); err != nil {
-			_ = s.registry.RUnlock()
-		}
-	}()
-
-	defer func() {
-		if err := s.registry.RUnlock(); err != nil {
-			log.Errorf("Failed to release registry lock: %s", err)
-		}
-	}()
-
-	modelInfo, err := s.registry.GetModel(configmodel.Name(request.Name), configmodel.Version(request.Version))
+	name, version := configmodel.Name(request.Name), configmodel.Version(request.Version)
+	modelInfo, err := s.registry.GetModel(name, version)
 	if err != nil {
 		log.Warnf("GetModelRequest %+v failed: %v", request, err)
 		return nil, errors.Status(err).Err()
@@ -106,23 +93,6 @@ func (s *Server) GetModel(ctx context.Context, request *configmodelapi.GetModelR
 // ListModels :
 func (s *Server) ListModels(ctx context.Context, request *configmodelapi.ListModelsRequest) (*configmodelapi.ListModelsResponse, error) {
 	log.Debugf("Received ListModelsRequest %+v", request)
-	if err := s.registry.RLock(); err != nil {
-		log.Errorf("Failed to acquire registry lock: %s", err)
-		return nil, errors.Status(err).Err()
-	}
-
-	defer func() {
-		if err := recover(); err != nil {
-			_ = s.registry.RUnlock()
-		}
-	}()
-
-	defer func() {
-		if err := s.registry.RUnlock(); err != nil {
-			log.Errorf("Failed to release registry lock: %s", err)
-		}
-	}()
-
 	modelInfos, err := s.registry.ListModels()
 	if err != nil {
 		log.Warnf("ListModelsRequest %+v failed: %v", request, err)
@@ -156,24 +126,27 @@ func (s *Server) ListModels(ctx context.Context, request *configmodelapi.ListMod
 // PushModel :
 func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushModelRequest) (*configmodelapi.PushModelResponse, error) {
 	log.Debugf("Received PushModelRequest %+v", request)
-	if err := s.registry.Lock(); err != nil {
-		log.Errorf("Failed to acquire registry lock: %s", err)
+	if err := s.cache.Lock(); err != nil {
+		log.Errorf("Failed to acquire cache lock: %s", err)
 		return nil, errors.Status(err).Err()
 	}
 
 	defer func() {
 		if err := recover(); err != nil {
-			_ = s.registry.Unlock()
+			_ = s.cache.Unlock()
 		}
 	}()
 
 	defer func() {
-		if err := s.registry.Unlock(); err != nil {
-			log.Errorf("Failed to release registry lock: %s", err)
+		if err := s.cache.Unlock(); err != nil {
+			log.Errorf("Failed to release cache lock: %s", err)
 		}
 	}()
 
-	_, err := s.registry.GetModel(configmodel.Name(request.Model.Name), configmodel.Version(request.Model.Version))
+	name, version := configmodel.Name(request.Model.Name), configmodel.Version(request.Model.Version)
+
+	// First check the registry for the model
+	_, err := s.registry.GetModel(name, version)
 	if err == nil {
 		err = errors.NewAlreadyExists("model '%s/%s' already exists", request.Model.Name, request.Model.Version)
 	}
@@ -211,11 +184,28 @@ func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushMode
 		},
 	}
 
-	err = s.compiler.CompilePlugin(modelInfo)
+	// Look for the plugin in the cache
+	cached, err := s.cache.Cached(name, version)
 	if err != nil {
 		log.Warnf("PushModelRequest %+v failed: %v", request, err)
 		return nil, errors.Status(err).Err()
 	}
+
+	// If the plugin is not present in the cache, compile it
+	if !cached {
+		path, err := s.cache.GetPath(name, version)
+		if err != nil {
+			log.Warnf("PushModelRequest %+v failed: %v", request, err)
+			return nil, errors.Status(err).Err()
+		}
+		err = s.compiler.CompilePlugin(modelInfo, path)
+		if err != nil {
+			log.Warnf("PushModelRequest %+v failed: %v", request, err)
+			return nil, errors.Status(err).Err()
+		}
+	}
+
+	// Add the model to the registry
 	err = s.registry.AddModel(modelInfo)
 	if err != nil {
 		log.Warnf("PushModelRequest %+v failed: %v", request, err)
@@ -228,36 +218,11 @@ func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushMode
 
 // DeleteModel :
 func (s *Server) DeleteModel(ctx context.Context, request *configmodelapi.DeleteModelRequest) (*configmodelapi.DeleteModelResponse, error) {
-	log.Debugf("Received PushModelRequest %+v", request)
-	if err := s.registry.Lock(); err != nil {
-		log.Errorf("Failed to acquire registry lock: %s", err)
-		return nil, errors.Status(err).Err()
-	}
-
-	defer func() {
-		if err := recover(); err != nil {
-			_ = s.registry.Unlock()
-		}
-	}()
-
-	defer func() {
-		if err := s.registry.Unlock(); err != nil {
-			log.Errorf("Failed to release registry lock: %s", err)
-		}
-	}()
-
 	log.Debugf("Received DeleteModelRequest %+v", request)
 	err := s.registry.RemoveModel(configmodel.Name(request.Name), configmodel.Version(request.Version))
 	if err != nil {
 		log.Warnf("DeleteModelRequest %+v failed: %v", request, err)
 		return nil, errors.Status(err).Err()
-	}
-	path := filepath.Join(s.registry.Config.Path, s.registry.getPluginFile(configmodel.Name(request.Name), configmodel.Version(request.Version)))
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		err = os.Remove(path)
-		if err != nil {
-			log.Error(err)
-		}
 	}
 	response := &configmodelapi.DeleteModelResponse{}
 	log.Debugf("Sending DeleteModelResponse %+v", response)

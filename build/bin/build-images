@@ -11,6 +11,10 @@ do
     docker build . -f build/config-model-base/Dockerfile \
         --build-arg GOLANG_BUILD_VERSION=${build} \
         -t onosproject/config-model-base:${version}-golang-build-${build}
+    docker build . -f build/config-model-init/Dockerfile \
+        --build-arg GOLANG_BUILD_VERSION=${build} \
+        --build-arg CONFIG_MODEL_VERSION=${version} \
+        -t onosproject/config-model-init:${version}-golang-build-${build}
     docker build . -f build/config-model-compiler/Dockerfile \
         --build-arg GOLANG_BUILD_VERSION=${build} \
         --build-arg CONFIG_MODEL_VERSION=${version} \
@@ -21,5 +25,6 @@ do
         -t onosproject/config-model-registry:${version}-golang-build-${build}
 done
 
+docker tag onosproject/config-model-init:${version}-golang-build-${defbuild} onosproject/config-model-init:${version}
 docker tag onosproject/config-model-compiler:${version}-golang-build-${defbuild} onosproject/config-model-compiler:${version}
 docker tag onosproject/config-model-registry:${version}-golang-build-${defbuild} onosproject/config-model-registry:${version}
