@@ -112,6 +112,18 @@ func getCompileCmd() *cobra.Command {
 				})
 			}
 
+			registryConfig := modelregistry.Config{
+				Path: repoPath,
+			}
+			registry := modelregistry.NewConfigModelRegistry(registryConfig)
+			if err := registry.Lock(); err != nil {
+				return err
+			}
+
+			defer func() {
+				_ = registry.Unlock()
+			}()
+
 			config := plugincompiler.CompilerConfig{
 				TemplatePath: "pkg/model/plugin/compiler/templates",
 				BuildPath:    buildPath,
@@ -122,12 +134,10 @@ func getCompileCmd() *cobra.Command {
 			if err := plugincompiler.CompilePlugin(modelInfo, config); err != nil {
 				return err
 			}
-
-			registryConfig := modelregistry.Config{
-				Path: repoPath,
+			if err := registry.AddModel(modelInfo); err != nil {
+				return err
 			}
-			registry := modelregistry.NewConfigModelRegistry(registryConfig)
-			return registry.AddModel(modelInfo)
+			return nil
 		},
 	}
 	cmd.Flags().StringP("name", "n", "", "the model name")

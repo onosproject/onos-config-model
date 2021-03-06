@@ -60,6 +60,23 @@ type Server struct {
 // GetModel :
 func (s *Server) GetModel(ctx context.Context, request *configmodelapi.GetModelRequest) (*configmodelapi.GetModelResponse, error) {
 	log.Debugf("Received GetModelRequest %+v", request)
+	if err := s.registry.RLock(); err != nil {
+		log.Errorf("Failed to acquire registry lock: %s", err)
+		return nil, errors.Status(err).Err()
+	}
+
+	defer func() {
+		if err := recover(); err != nil {
+			_ = s.registry.RUnlock()
+		}
+	}()
+
+	defer func() {
+		if err := s.registry.RUnlock(); err != nil {
+			log.Errorf("Failed to release registry lock: %s", err)
+		}
+	}()
+
 	modelInfo, err := s.registry.GetModel(configmodel.Name(request.Name), configmodel.Version(request.Version))
 	if err != nil {
 		log.Warnf("GetModelRequest %+v failed: %v", request, err)
@@ -89,6 +106,23 @@ func (s *Server) GetModel(ctx context.Context, request *configmodelapi.GetModelR
 // ListModels :
 func (s *Server) ListModels(ctx context.Context, request *configmodelapi.ListModelsRequest) (*configmodelapi.ListModelsResponse, error) {
 	log.Debugf("Received ListModelsRequest %+v", request)
+	if err := s.registry.RLock(); err != nil {
+		log.Errorf("Failed to acquire registry lock: %s", err)
+		return nil, errors.Status(err).Err()
+	}
+
+	defer func() {
+		if err := recover(); err != nil {
+			_ = s.registry.RUnlock()
+		}
+	}()
+
+	defer func() {
+		if err := s.registry.RUnlock(); err != nil {
+			log.Errorf("Failed to release registry lock: %s", err)
+		}
+	}()
+
 	modelInfos, err := s.registry.ListModels()
 	if err != nil {
 		log.Warnf("ListModelsRequest %+v failed: %v", request, err)
@@ -122,6 +156,23 @@ func (s *Server) ListModels(ctx context.Context, request *configmodelapi.ListMod
 // PushModel :
 func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushModelRequest) (*configmodelapi.PushModelResponse, error) {
 	log.Debugf("Received PushModelRequest %+v", request)
+	if err := s.registry.Lock(); err != nil {
+		log.Errorf("Failed to acquire registry lock: %s", err)
+		return nil, errors.Status(err).Err()
+	}
+
+	defer func() {
+		if err := recover(); err != nil {
+			_ = s.registry.Unlock()
+		}
+	}()
+
+	defer func() {
+		if err := s.registry.Unlock(); err != nil {
+			log.Errorf("Failed to release registry lock: %s", err)
+		}
+	}()
+
 	_, err := s.registry.GetModel(configmodel.Name(request.Model.Name), configmodel.Version(request.Model.Version))
 	if err == nil {
 		err = errors.NewAlreadyExists("model '%s/%s' already exists", request.Model.Name, request.Model.Version)
@@ -177,6 +228,24 @@ func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushMode
 
 // DeleteModel :
 func (s *Server) DeleteModel(ctx context.Context, request *configmodelapi.DeleteModelRequest) (*configmodelapi.DeleteModelResponse, error) {
+	log.Debugf("Received PushModelRequest %+v", request)
+	if err := s.registry.Lock(); err != nil {
+		log.Errorf("Failed to acquire registry lock: %s", err)
+		return nil, errors.Status(err).Err()
+	}
+
+	defer func() {
+		if err := recover(); err != nil {
+			_ = s.registry.Unlock()
+		}
+	}()
+
+	defer func() {
+		if err := s.registry.Unlock(); err != nil {
+			log.Errorf("Failed to release registry lock: %s", err)
+		}
+	}()
+
 	log.Debugf("Received DeleteModelRequest %+v", request)
 	err := s.registry.RemoveModel(configmodel.Name(request.Name), configmodel.Version(request.Version))
 	if err != nil {
