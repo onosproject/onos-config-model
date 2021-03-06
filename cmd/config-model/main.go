@@ -19,9 +19,11 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
 	configmodelapi "github.com/onosproject/onos-api/go/onos/configmodel"
 	"github.com/onosproject/onos-config-model/pkg/model"
 	"github.com/onosproject/onos-config-model/pkg/model/plugin/compiler"
+	"github.com/onosproject/onos-config-model/pkg/model/plugin/module"
 	"github.com/onosproject/onos-config-model/pkg/model/registry"
 	"github.com/onosproject/onos-lib-go/pkg/certs"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
@@ -52,6 +54,7 @@ func getCmd() *cobra.Command {
 	}
 	cmd.AddCommand(getRegistryCmd())
 	cmd.AddCommand(getCompileCmd())
+	cmd.AddCommand(getInitCmd())
 	return cmd
 }
 
@@ -143,6 +146,53 @@ func getCompileCmd() *cobra.Command {
 	cmd.Flags().StringP("replace", "r", "", "the replace Go module")
 	cmd.Flags().StringP("build-path", "b", "", "the build path")
 	cmd.Flags().StringP("output-path", "o", "", "the output path")
+	return cmd
+}
+
+func getInitCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:          "init",
+		Short:        "Initializes the target module info",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			target, _ := cmd.Flags().GetString("target")
+			replace, _ := cmd.Flags().GetString("replace")
+			hashPath, _ := cmd.Flags().GetString("hash-path")
+			modPath, _ := cmd.Flags().GetString("mod-path")
+			config := module.ManagerConfig{
+				Target:  target,
+				Replace: replace,
+			}
+			manager := module.NewManager(config)
+			mod, hash, err := manager.FetchMod()
+			if err != nil {
+				return err
+			}
+			bytes, err := mod.Format()
+			if err != nil {
+				return err
+			}
+			if hashPath != "" {
+				if err := ioutil.WriteFile(hashPath, hash, os.ModePerm); err != nil {
+					return err
+				}
+			} else {
+				fmt.Println(string(hash))
+			}
+			if modPath != "" {
+				if err := ioutil.WriteFile(modPath, bytes, os.ModePerm); err != nil {
+					return err
+				}
+			} else {
+				fmt.Println(string(bytes))
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringP("target", "t", "", "the target Go module")
+	cmd.Flags().StringP("replace", "r", "", "the replace Go module")
+	cmd.Flags().StringP("hash-path", "b", "", "the hash path")
+	cmd.Flags().StringP("mod-path", "b", "", "the module path")
 	return cmd
 }
 

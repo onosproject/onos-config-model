@@ -6,9 +6,11 @@ shift
 
 for build in "$@"
 do
+    docker push onosproject/config-model-init:go-${version}-build-${build}
     docker push onosproject/config-model-compiler:go-${version}-build-${build}
     docker push onosproject/config-model-registry:go-${version}-build-${build}
 done
 
+docker push onosproject/config-model-init:go-${version}
 docker push onosproject/config-model-compiler:go-${version}
 docker push onosproject/config-model-registry:go-${version}

@@ -8,9 +8,11 @@ shift
 
 for build in "$@"
 do
+    kind load docker-image onosproject/config-model-init:${version}-golang-build-${build}
     kind load docker-image onosproject/config-model-compiler:${version}-golang-build-${build}
     kind load docker-image onosproject/config-model-registry:${version}-golang-build-${build}
 done
 
+kind load docker-image onosproject/config-model-init:${version}
 kind load docker-image onosproject/config-model-compiler:${version}
 kind load docker-image onosproject/config-model-registry:${version}
