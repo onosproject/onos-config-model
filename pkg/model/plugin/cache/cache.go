@@ -26,6 +26,7 @@ import (
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -50,7 +51,6 @@ func NewPluginCache(config CacheConfig, resolver *pluginmodule.Resolver) *Plugin
 	return &PluginCache{
 		Config:   config,
 		resolver: resolver,
-		lock:     flock.New(filepath.Join(config.Path, lockFileName)),
 	}
 }
 
@@ -59,14 +59,16 @@ type PluginCache struct {
 	Config   CacheConfig
 	resolver *pluginmodule.Resolver
 	lock     *flock.Flock
+	mu       sync.RWMutex
 }
 
 // Lock acquires a write lock on the cache
 func (c *PluginCache) Lock() error {
-	if err := c.checkLock(); err != nil {
+	lock, err := c.getLock()
+	if err != nil {
 		return err
 	}
-	succeeded, err := c.lock.TryLockContext(context.Background(), lockAttemptDelay)
+	succeeded, err := lock.TryLockContext(context.Background(), lockAttemptDelay)
 	if err != nil {
 		return errors.NewInternal(err.Error())
 	} else if !succeeded {
@@ -77,20 +79,28 @@ func (c *PluginCache) Lock() error {
 
 // IsLocked checks whether the cache is write locked
 func (c *PluginCache) IsLocked() bool {
-	return c.lock.Locked()
+	c.mu.RLock()
+	lock := c.lock
+	c.mu.RUnlock()
+	return lock != nil && lock.Locked()
 }
 
 // Unlock releases a write lock from the cache
 func (c *PluginCache) Unlock() error {
-	return c.lock.Unlock()
+	lock, err := c.getLock()
+	if err != nil {
+		return err
+	}
+	return lock.Unlock()
 }
 
 // RLock acquires a read lock on the cache
 func (c *PluginCache) RLock() error {
-	if err := c.checkLock(); err != nil {
+	lock, err := c.getLock()
+	if err != nil {
 		return err
 	}
-	succeeded, err := c.lock.TryRLockContext(context.Background(), lockAttemptDelay)
+	succeeded, err := lock.TryRLockContext(context.Background(), lockAttemptDelay)
 	if err != nil {
 		return errors.NewInternal(err.Error())
 	} else if !succeeded {
@@ -101,18 +111,53 @@ func (c *PluginCache) RLock() error {
 
 // IsRLocked checks whether the cache is read locked
 func (c *PluginCache) IsRLocked() bool {
-	return c.lock.Locked() || c.lock.RLocked()
+	c.mu.RLock()
+	lock := c.lock
+	c.mu.RUnlock()
+	return lock != nil && (lock.Locked() || lock.RLocked())
 }
 
 // RUnlock releases a read lock on the cache
 func (c *PluginCache) RUnlock() error {
-	return c.lock.Unlock()
+	lock, err := c.getLock()
+	if err != nil {
+		return err
+	}
+	return lock.Unlock()
 }
 
-// checkLock ensures the lock file has been initialized with the correct permissions (0666)
-func (c *PluginCache) checkLock() error {
-	_, err := os.Create(filepath.Join(c.Config.Path, lockFileName))
-	return err
+// getLock gets the cache lock for the resolved module target, initializing the lock with the
+// correct permissions (0666) if necessary
+func (c *PluginCache) getLock() (*flock.Flock, error) {
+	c.mu.RLock()
+	lock := c.lock
+	c.mu.RUnlock()
+	if lock != nil {
+		return lock, nil
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	dir, err := c.getDir()
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+			return nil, err
+		}
+	}
+
+	file := filepath.Join(dir, lockFileName)
+	if _, err = os.Create(file); err != nil {
+		return nil, err
+	}
+
+	lock = flock.New(file)
+	c.lock = lock
+	return lock, nil
 }
 
 // getDir gets the cache directory for the module target
