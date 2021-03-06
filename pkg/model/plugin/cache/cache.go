@@ -47,6 +47,7 @@ func NewPluginCache(config CacheConfig, resolver *pluginmodule.Resolver) *Plugin
 	if config.Path == "" {
 		config.Path = defaultPath
 	}
+	ensureDir(config.Path)
 	return &PluginCache{
 		Config:   config,
 		resolver: resolver,
@@ -109,9 +110,8 @@ func (c *PluginCache) GetPath(name configmodel.Name, version configmodel.Version
 	if err != nil {
 		return "", err
 	}
-	var dir []byte
-	base64.URLEncoding.Encode(dir, hash)
-	return filepath.Join(c.Config.Path, string(dir), fmt.Sprintf("%s-%s.so", name, version)), nil
+	dir := base64.URLEncoding.EncodeToString(hash)
+	return filepath.Join(c.Config.Path, dir, fmt.Sprintf("%s-%s.so", name, version)), nil
 }
 
 // Cached returns whether the given plugin is cached
@@ -139,4 +139,13 @@ func (c *PluginCache) Load(name configmodel.Name, version configmodel.Version) (
 		return nil, err
 	}
 	return modelplugin.Load(path)
+}
+
+func ensureDir(dir string) {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		log.Debugf("Creating '%s'", dir)
+		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+			log.Errorf("Creating '%s' failed: %s", dir, err)
+		}
+	}
 }

@@ -112,8 +112,8 @@ func getCompileCmd() *cobra.Command {
 				Name:    name,
 				Version: version,
 				Plugin: configmodel.PluginInfo{
-					Name:    configmodel.Name(name),
-					Version: configmodel.Version(version),
+					Name:    name,
+					Version: version,
 				},
 			}
 

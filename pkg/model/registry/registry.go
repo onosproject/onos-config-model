@@ -31,13 +31,7 @@ import (
 const jsonExt = ".json"
 
 const (
-	modelRegistryEnv = "CONFIG_MODEL_REGISTRY"
-	targetModuleEnv  = "CONFIG_MODULE_TARGET"
-	replaceModuleEnv = "CONFIG_MODULE_REPLACE"
-)
-
-const (
-	defaultPath = "/etc/onos/registry"
+	defaultPath   = "/etc/onos/registry"
 	defaultTarget = "github.com/onosproject/onos-config"
 )
 
@@ -62,16 +56,6 @@ func NewConfigModelRegistry(config Config) *ConfigModelRegistry {
 	return &ConfigModelRegistry{
 		Config: config,
 	}
-}
-
-// NewConfigModelRegistryFromEnv creates a new config model registry from the environment
-func NewConfigModelRegistryFromEnv() *ConfigModelRegistry {
-	dir, target, replace := os.Getenv(modelRegistryEnv), os.Getenv(targetModuleEnv), os.Getenv(replaceModuleEnv)
-	path, err := GetPath(dir, target, replace)
-	if err != nil {
-		panic(err)
-	}
-	return NewConfigModelRegistry(Config{Path: path})
 }
 
 // ConfigModelRegistry is a registry of config models

@@ -59,6 +59,7 @@ func NewResolver(config ResolverConfig) *Resolver {
 	if config.Path == "" {
 		config.Path = defaultPath
 	}
+	ensureDir(config.Path)
 	return &Resolver{config}
 }
 
@@ -109,6 +110,7 @@ func (r *Resolver) getGoModCacheDir() (string, error) {
 	return modCache, nil
 }
 
+// Resolve resolves the module info for the target module
 func (r *Resolver) Resolve() (*modfile.File, Hash, error) {
 	modPath := r.getModPath()
 	modBytes, modErr := ioutil.ReadFile(modPath)
@@ -245,13 +247,6 @@ func (r *Resolver) fetchMod() (*modfile.File, Hash, error) {
 		return nil, nil, err
 	}
 
-	// Format the target go.mod file
-	modBytes, err = modFile.Format()
-	if err != nil {
-		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
-		return nil, nil, err
-	}
-
 	// Read the target ziphash from the cache
 	hashPath := filepath.Join(modCache, "cache", "download", modPath, "@v", modVersion+".ziphash")
 	hashBytes, err := ioutil.ReadFile(hashPath)
@@ -275,6 +270,15 @@ func splitModPathVersion(mod string) (string, string) {
 		return mod[:i], mod[i+1:]
 	}
 	return mod, ""
+}
+
+func ensureDir(dir string) {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		log.Debugf("Creating '%s'", dir)
+		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+			log.Errorf("Creating '%s' failed: %s", dir, err)
+		}
+	}
 }
 
 type goEnv struct {

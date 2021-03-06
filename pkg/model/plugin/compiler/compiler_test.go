@@ -16,7 +16,8 @@ package plugincompiler
 
 import (
 	"github.com/onosproject/onos-config-model/pkg/model"
-	"github.com/onosproject/onos-config-model/pkg/model/plugin"
+	plugincache "github.com/onosproject/onos-config-model/pkg/model/plugin/cache"
+	pluginmodule "github.com/onosproject/onos-config-model/pkg/model/plugin/module"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"path/filepath"
@@ -26,12 +27,19 @@ import (
 func TestCompiler(t *testing.T) {
 	t.Skip()
 
+	resolver := pluginmodule.NewResolver(pluginmodule.ResolverConfig{
+		Path:   filepath.Join(moduleRoot, "test", "mod"),
+		Target: "github.com/onosproject/onos-config@master",
+	})
+
+	cache := plugincache.NewPluginCache(plugincache.CacheConfig{
+		Path: filepath.Join(moduleRoot, "test", "cache"),
+	}, resolver)
+
 	config := CompilerConfig{
 		TemplatePath: filepath.Join(moduleRoot, "pkg", "model", "plugin", "compiler", "templates"),
-		BuildPath:    filepath.Join(moduleRoot, "build", "_output"),
-		OutputPath:   filepath.Join(moduleRoot, "test", "_output"),
+		BuildPath:    filepath.Join(moduleRoot, "test", "build"),
 	}
-	compiler := NewPluginCompiler(config)
 
 	bytes, err := ioutil.ReadFile(filepath.Join(moduleRoot, "test", "test@2020-11-18.yang"))
 	assert.NoError(t, err)
@@ -58,10 +66,21 @@ func TestCompiler(t *testing.T) {
 			Version: "1.0.0",
 		},
 	}
-	err = compiler.CompilePlugin(modelInfo)
+
+	err = cache.Lock()
 	assert.NoError(t, err)
 
-	plugin, err := modelplugin.Load(filepath.Join(moduleRoot, "test", "_output", "test-1.0.0.so"))
+	outputPath, err := cache.GetPath("test", "1.0.0")
+	assert.NoError(t, err)
+
+	compiler := NewPluginCompiler(config, resolver)
+	err = compiler.CompilePlugin(modelInfo, outputPath)
+	assert.NoError(t, err)
+
+	plugin, err := cache.Load("test", "1.0.0")
 	assert.NoError(t, err)
 	assert.NotNil(t, plugin)
+
+	err = cache.Unlock()
+	assert.NoError(t, err)
 }
