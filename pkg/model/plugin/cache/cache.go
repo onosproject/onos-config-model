@@ -47,7 +47,6 @@ func NewPluginCache(config CacheConfig, resolver *pluginmodule.Resolver) *Plugin
 	if config.Path == "" {
 		config.Path = defaultPath
 	}
-	ensureDir(config.Path)
 	return &PluginCache{
 		Config:   config,
 		resolver: resolver,
@@ -62,9 +61,16 @@ type PluginCache struct {
 	lock     *flock.Flock
 }
 
+func (c *PluginCache) checkLock() error {
+	_, err := os.Create(filepath.Join(c.Config.Path, lockFileName))
+	return err
+}
+
 // Lock acquires a write lock on the cache
 func (c *PluginCache) Lock() error {
-	ensureDir(filepath.Join(c.Config.Path, lockFileName))
+	if err := c.checkLock(); err != nil {
+		return err
+	}
 	succeeded, err := c.lock.TryLockContext(context.Background(), lockAttemptDelay)
 	if err != nil {
 		return errors.NewInternal(err.Error())
@@ -86,7 +92,9 @@ func (c *PluginCache) Unlock() error {
 
 // RLock acquires a read lock on the cache
 func (c *PluginCache) RLock() error {
-	ensureDir(filepath.Join(c.Config.Path, lockFileName))
+	if err := c.checkLock(); err != nil {
+		return err
+	}
 	succeeded, err := c.lock.TryRLockContext(context.Background(), lockAttemptDelay)
 	if err != nil {
 		return errors.NewInternal(err.Error())
@@ -143,11 +151,12 @@ func (c *PluginCache) Load(name configmodel.Name, version configmodel.Version) (
 	return modelplugin.Load(path)
 }
 
-func ensureDir(dir string) {
+func openFH(file string) (*os.File, error) {
+	dir := filepath.Dir(file)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		log.Debugf("Creating '%s'", dir)
 		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-			log.Errorf("Creating '%s' failed: %s", dir, err)
+			return nil, err
 		}
 	}
+	return os.OpenFile(file, os.O_CREATE|os.O_RDWR, os.FileMode(0666))
 }
