@@ -33,14 +33,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 var log = logging.GetLogger("config-model", "plugin", "module")
 
 const (
-	defaultPath = "/etc/onos/mod"
-	modFile     = "go.mod"
-	hashFile    = "mod.md5"
+	defaultPath   = "/etc/onos/mod"
+	modFile       = "go.mod"
+	hashFile      = "mod.md5"
+	modVersionSep = "@"
 )
 
 // Hash is a module hash
@@ -115,20 +117,27 @@ func (r *Resolver) Resolve() (*modfile.File, Hash, error) {
 	hashBytes, hashErr := ioutil.ReadFile(hashPath)
 	if modErr != nil || hashErr != nil {
 		mod, hash, err := r.fetchMod()
-		modBytes, err := mod.Format()
 		if err != nil {
 			return nil, nil, err
 		}
+		modBytes, err := mod.Format()
+		if err != nil {
+			log.Errorf("Failed to format go.mod: %s", err)
+			return nil, nil, err
+		}
 		if err := ioutil.WriteFile(r.getModPath(), modBytes, 0666); err != nil {
+			log.Errorf("Failed to write go.mod: %s", err)
 			return nil, nil, err
 		}
 		if err := ioutil.WriteFile(r.getHashPath(), hash, 0666); err != nil {
+			log.Errorf("Failed to write module hash: %s", err)
 			return nil, nil, err
 		}
 		return mod, hash, nil
 	}
 	modFile, err := modfile.Parse(modPath, modBytes, nil)
 	if err != nil {
+		log.Errorf("Failed to parse go.mod: %s", err)
 		return nil, nil, err
 	}
 	return modFile, hashBytes, nil
@@ -137,15 +146,17 @@ func (r *Resolver) Resolve() (*modfile.File, Hash, error) {
 func (r *Resolver) fetchMod() (*modfile.File, Hash, error) {
 	target, replace := r.Config.Target, r.Config.Replace
 	if target == "" {
-		return nil, nil, errors.NewInvalid("no target module configured")
+		err := errors.NewInvalid("no target module configured")
+		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
+		return nil, nil, err
 	}
 
-	targetPath, _, _ := module.SplitPathVersion(target)
+	targetPath, _ := splitModPathVersion(target)
 
-	log.Debugf("Fetching module '%s'", target)
+	log.Infof("Fetching module '%s'", target)
 	tmpDir, err := ioutil.TempDir("", "config-model")
 	if err != nil {
-		log.Error(err)
+		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
 	defer os.RemoveAll(tmpDir)
@@ -153,34 +164,34 @@ func (r *Resolver) fetchMod() (*modfile.File, Hash, error) {
 	// Generate a temporary module with which to pull the target module
 	tmpMod := []byte("module m\n")
 	if replace != "" {
-		replacePath, replaceVersion, _ := module.SplitPathVersion(replace)
+		replacePath, replaceVersion := splitModPathVersion(replace)
 		tmpMod = append(tmpMod, []byte(fmt.Sprintf("replace %s => %s %s\n", targetPath, replacePath, replaceVersion))...)
 	}
 
 	// Write the temporary module file
 	tmpModPath := filepath.Join(tmpDir, modFile)
 	if err := ioutil.WriteFile(tmpModPath, tmpMod, 0666); err != nil {
-		log.Error(err)
+		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
 
 	// Add the target dependency to the temporary module and download the target module
 	if _, err := r.exec(tmpDir, "go", "get", "-d", target); err != nil {
-		log.Error(err)
+		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
 
 	// Read the updated go.mod for the temporary module
 	tmpMod, err = ioutil.ReadFile(tmpModPath)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
 
 	// Parse the updated go.mod for the temporary module
 	tmpModFile, err := modfile.Parse(tmpModPath, tmpMod, nil)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
 
@@ -216,7 +227,7 @@ func (r *Resolver) fetchMod() (*modfile.File, Hash, error) {
 	// Encode the target dependency path
 	encPath, err := module.EncodePath(modPath)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
 	modPath = encPath
@@ -224,7 +235,7 @@ func (r *Resolver) fetchMod() (*modfile.File, Hash, error) {
 	// Lookup the Go cache from the environment
 	modCache, err := r.getGoModCacheDir()
 	if err != nil {
-		log.Error(err)
+		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
 
@@ -232,21 +243,21 @@ func (r *Resolver) fetchMod() (*modfile.File, Hash, error) {
 	cacheModPath := filepath.Join(modCache, "cache", "download", modPath, "@v", modVersion+".mod")
 	modBytes, err := ioutil.ReadFile(cacheModPath)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
 
 	// Parse the target go.mod
 	modFile, err := modfile.Parse(cacheModPath, modBytes, nil)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
 
 	// Format the target go.mod file
 	modBytes, err = modFile.Format()
 	if err != nil {
-		log.Error(err)
+		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
 	return modFile, modHash, nil
@@ -258,6 +269,13 @@ func (r *Resolver) getModPath() string {
 
 func (r *Resolver) getHashPath() string {
 	return filepath.Join(r.Config.Path, hashFile)
+}
+
+func splitModPathVersion(mod string) (string, string) {
+	if i := strings.Index(mod, modVersionSep); i >= 0 {
+		return mod[:i], mod[i+1:]
+	}
+	return mod, ""
 }
 
 type goEnv struct {

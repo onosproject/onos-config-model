@@ -159,7 +159,7 @@ func getCompileCmd() *cobra.Command {
 	cmd.Flags().StringToStringP("module", "m", map[string]string{}, "model module descriptors")
 	cmd.Flags().StringP("mod-target", "t", "", "the target Go module")
 	cmd.Flags().StringP("mod-replace", "r", "", "the replace Go module")
-	cmd.Flags().StringP("mod-path", "m", defaultModPath, "the module path")
+	cmd.Flags().StringP("mod-path", "p", defaultModPath, "the module path")
 	cmd.Flags().StringP("cache-path", "o", defaultCachePath, "the cache path")
 	cmd.Flags().StringP("build-path", "b", defaultBuildPath, "the build path")
 	return cmd
@@ -181,6 +181,9 @@ func getInitCmd() *cobra.Command {
 			}
 			manager := pluginmodule.NewResolver(config)
 			_, _, err := manager.Resolve()
+			if err != nil {
+				log.Errorf("Failed to initialize module '%s': %s", modTarget, err)
+			}
 			return err
 		},
 	}
