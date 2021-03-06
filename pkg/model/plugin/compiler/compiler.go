@@ -58,6 +58,11 @@ const (
 	modelFile  = "model.go"
 )
 
+const (
+	defaultBuildPath    = "/etc/onos/build"
+	defaultTemplatePath = "pkg/model/plugin/compiler/templates"
+)
+
 var (
 	_, b, _, _            = runtime.Caller(0)
 	moduleRoot            = filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(b)))))
@@ -96,6 +101,12 @@ type CompilerConfig struct {
 
 // NewPluginCompiler creates a new model plugin compiler
 func NewPluginCompiler(config CompilerConfig, resolver *pluginmodule.Resolver) *PluginCompiler {
+	if config.BuildPath == "" {
+		config.BuildPath = defaultBuildPath
+	}
+	if config.TemplatePath == "" {
+		config.TemplatePath = defaultTemplatePath
+	}
 	return &PluginCompiler{
 		Config:   config,
 		resolver: resolver,

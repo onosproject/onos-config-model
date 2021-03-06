@@ -31,7 +31,7 @@ import (
 var log = logging.GetLogger("config-model", "plugin", "cache")
 
 const (
-	defaultPath      = "/etc/onos/cache"
+	defaultPath      = "/etc/onos/plugins"
 	lockFileName     = "cache.lock"
 	lockAttemptDelay = 5 * time.Second
 )

@@ -18,6 +18,7 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"github.com/onosproject/onos-lib-go/pkg/errors"
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	_ "github.com/openconfig/gnmi/proto/gnmi" // gnmi
 	_ "github.com/openconfig/goyang/pkg/yang" // yang
@@ -37,6 +38,7 @@ import (
 var log = logging.GetLogger("config-model", "plugin", "module")
 
 const (
+	defaultPath = "/etc/onos/mod"
 	modFile     = "go.mod"
 	hashFile    = "mod.md5"
 )
@@ -53,6 +55,9 @@ type ResolverConfig struct {
 
 // NewResolver creates a new module resolver
 func NewResolver(config ResolverConfig) *Resolver {
+	if config.Path == "" {
+		config.Path = defaultPath
+	}
 	return &Resolver{config}
 }
 
@@ -131,6 +136,10 @@ func (r *Resolver) Resolve() (*modfile.File, Hash, error) {
 
 func (r *Resolver) fetchMod() (*modfile.File, Hash, error) {
 	target, replace := r.Config.Target, r.Config.Replace
+	if target == "" {
+		return nil, nil, errors.NewInvalid("no target module configured")
+	}
+
 	targetPath, _, _ := module.SplitPathVersion(target)
 
 	log.Debugf("Fetching module '%s'", target)

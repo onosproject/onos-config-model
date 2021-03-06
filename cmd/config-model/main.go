@@ -43,10 +43,9 @@ var log = logging.GetLogger("config-model")
 
 const (
 	defaultCachePath    = "/etc/onos/plugins"
-	defaultRegistryPath = "/etc/onos/registry/models"
-	defaultModPath      = "/etc/onos/registry/module"
+	defaultRegistryPath = "/etc/onos/registry"
+	defaultModPath      = "/etc/onos/mod"
 	defaultBuildPath    = "/etc/onos/build"
-	defaultTemplatePath = "pkg/model/plugin/compiler/templates"
 )
 
 func main() {
