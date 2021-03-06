@@ -15,7 +15,6 @@
 package pluginmodule
 
 import (
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"github.com/onosproject/onos-lib-go/pkg/errors"
@@ -216,14 +215,6 @@ func (r *Resolver) fetchMod() (*modfile.File, Hash, error) {
 		}
 	}
 
-	// Compute the hash for the target module
-	hashBytes := append([]byte(modPath), []byte(modVersion)...)
-	modSum := md5.Sum(hashBytes)
-	modHash := make(Hash, len(modSum))
-	for i, b := range modSum {
-		modHash[i] = b
-	}
-
 	// Encode the target dependency path
 	encPath, err := module.EncodePath(modPath)
 	if err != nil {
@@ -260,7 +251,15 @@ func (r *Resolver) fetchMod() (*modfile.File, Hash, error) {
 		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
-	return modFile, modHash, nil
+
+	// Read the target ziphash from the cache
+	hashPath := filepath.Join(modCache, "cache", "download", modPath, "@v", modVersion+".ziphash")
+	hashBytes, err := ioutil.ReadFile(hashPath)
+	if err != nil {
+		log.Errorf("Failed to fetch module '%s' hash: %s", r.Config.Target, err)
+		return nil, nil, err
+	}
+	return modFile, Hash(hashBytes), nil
 }
 
 func (r *Resolver) getModPath() string {
