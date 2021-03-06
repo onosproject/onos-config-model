@@ -16,6 +16,7 @@ package plugincache
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"github.com/gofrs/flock"
 	configmodel "github.com/onosproject/onos-config-model/pkg/model"
@@ -108,7 +109,9 @@ func (c *PluginCache) GetPath(name configmodel.Name, version configmodel.Version
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(c.Config.Path, string(hash), fmt.Sprintf("%s-%s.so", name, version)), nil
+	var dir []byte
+	base64.URLEncoding.Encode(dir, hash)
+	return filepath.Join(c.Config.Path, string(dir), fmt.Sprintf("%s-%s.so", name, version)), nil
 }
 
 // Cached returns whether the given plugin is cached
