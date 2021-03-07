@@ -2,15 +2,8 @@
 echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin
 
 version=$1
-shift
 
-#for build in "$@"
-#do
-#    docker push onosproject/config-model-init:${version}-golang-build-${build}
-#    docker push onosproject/config-model-compiler:${version}-golang-build-${build}
-#    docker push onosproject/config-model-registry:${version}-golang-build-${build}
-#done
-
+docker push onosproject/config-model-build:${version}
 docker push onosproject/config-model-init:${version}
 docker push onosproject/config-model-compiler:${version}
 docker push onosproject/config-model-registry:${version}

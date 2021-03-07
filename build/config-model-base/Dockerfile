@@ -1,6 +1,6 @@
-ARG GOLANG_BUILD_VERSION=latest
+ARG CONFIG_MODEL_VERSION=latest
 
-FROM onosproject/golang-build:$GOLANG_BUILD_VERSION
+FROM onosproject/cofig-model-build:$CONFIG_MODEL_VERSION
 
 COPY go.mod go.sum /onos-config-model/
 

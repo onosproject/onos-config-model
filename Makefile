@@ -4,9 +4,6 @@ export GO111MODULE=on
 .PHONY: build
 
 ONOS_CONFIG_MODEL_VERSION ?= latest
-ONOS_PROTOC_VERSION := v0.6.7
-GOLANG_BUILD_VERSIONS  := v0.6.3 v0.6.6
-DEFAULT_GOLANG_BUILD_VERSION := v0.6.3
 
 PHONY:build
 build: # @HELP build all libraries
@@ -43,12 +40,6 @@ license_check: build-tools # @HELP examine and ensure license headers exist
 gofmt: # @HELP run the Go format validation
 	bash -c "diff -u <(echo -n) <(gofmt -d pkg/)"
 
-protos: # @HELP compile the protobuf files (using protoc-go Docker)
-	docker run -it -v `pwd`:/go/src/github.com/onosproject/onos-config-model \
-		-w /go/src/github.com/onosproject/onos-config-model \
-		--entrypoint build/bin/compile-protos.sh \
-		onosproject/protoc-go:${ONOS_PROTOC_VERSION}
-
 compile-plugins: # @HELP compile standard plugins
 compile-plugins:
 	docker run \
@@ -74,15 +65,15 @@ serve:
 		--build-path /onos-config-model/build
 
 images:
-	./build/bin/build-images ${ONOS_CONFIG_MODEL_VERSION} ${DEFAULT_GOLANG_BUILD_VERSION} ${GOLANG_BUILD_VERSIONS}
+	./build/bin/build-images ${ONOS_CONFIG_MODEL_VERSION}
 
 kind: # @HELP build Docker images and add them to the currently configured kind cluster
 kind: images
 	@if [ "`kind get clusters`" = '' ]; then echo "no kind cluster found" && exit 1; fi
-	./build/bin/load-images ${ONOS_CONFIG_MODEL_VERSION} ${DEFAULT_GOLANG_BUILD_VERSION} ${GOLANG_BUILD_VERSIONS}
+	./build/bin/load-images ${ONOS_CONFIG_MODEL_VERSION}
 
 push: images
-	./build/bin/push-images ${ONOS_CONFIG_MODEL_VERSION} ${GOLANG_BUILD_VERSIONS}
+	./build/bin/push-images ${ONOS_CONFIG_MODEL_VERSION}
 
 publish: # @HELP publish version on github and dockerhub
 	./../build-tools/publish-version ${VERSION} onosproject/onos-kpimon
