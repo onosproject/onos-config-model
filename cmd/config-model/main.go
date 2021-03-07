@@ -94,11 +94,11 @@ func getCompileCmd() *cobra.Command {
 				Path: cachePath,
 			}
 			cache := plugincache.NewPluginCache(cacheConfig, resolver)
-			if err := cache.Lock(); err != nil {
+			if err := cache.Lock(context.Background()); err != nil {
 				return err
 			}
 			defer func() {
-				_ = cache.Unlock()
+				_ = cache.Unlock(context.Background())
 			}()
 
 			cached, err := cache.Cached(name, version)

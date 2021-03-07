@@ -3,7 +3,6 @@ module github.com/onosproject/onos-config-model
 go 1.14
 
 require (
-	github.com/gofrs/flock v0.8.0
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/onosproject/onos-api/go v0.7.11
 	github.com/onosproject/onos-lib-go v0.7.5

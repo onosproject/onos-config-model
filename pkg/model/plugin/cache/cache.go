@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"github.com/gofrs/flock"
 	configmodel "github.com/onosproject/onos-config-model/pkg/model"
 	modelplugin "github.com/onosproject/onos-config-model/pkg/model/plugin"
 	pluginmodule "github.com/onosproject/onos-config-model/pkg/model/plugin/module"
@@ -26,6 +25,8 @@ import (
 	"github.com/onosproject/onos-lib-go/pkg/logging"
 	"os"
 	"path/filepath"
+	"sync"
+	"syscall"
 	"time"
 )
 
@@ -47,11 +48,9 @@ func NewPluginCache(config CacheConfig, resolver *pluginmodule.Resolver) *Plugin
 	if config.Path == "" {
 		config.Path = defaultPath
 	}
-	ensureDir(config.Path)
 	return &PluginCache{
 		Config:   config,
 		resolver: resolver,
-		lock:     flock.New(filepath.Join(config.Path, lockFileName)),
 	}
 }
 
@@ -59,59 +58,182 @@ func NewPluginCache(config CacheConfig, resolver *pluginmodule.Resolver) *Plugin
 type PluginCache struct {
 	Config   CacheConfig
 	resolver *pluginmodule.Resolver
-	lock     *flock.Flock
+	path     string
+	rlocked  bool
+	wlocked  bool
+	fh       *os.File
+	mu       sync.RWMutex
 }
 
 // Lock acquires a write lock on the cache
-func (c *PluginCache) Lock() error {
-	succeeded, err := c.lock.TryLockContext(context.Background(), lockAttemptDelay)
+func (c *PluginCache) Lock(ctx context.Context) error {
+	locked, err := c.lock(ctx, &c.wlocked, syscall.LOCK_EX)
 	if err != nil {
-		return errors.NewInternal(err.Error())
-	} else if !succeeded {
-		return errors.NewConflict("failed to acquire cache lock")
+		err = errors.NewInternal(err.Error())
+		log.Error(err)
+		return err
+	} else if !locked {
+		err = errors.NewConflict("failed to acquire cache lock")
+		log.Error(err)
+		return err
 	}
 	return nil
 }
 
 // IsLocked checks whether the cache is write locked
 func (c *PluginCache) IsLocked() bool {
-	return c.lock.Locked()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.wlocked
 }
 
 // Unlock releases a write lock from the cache
-func (c *PluginCache) Unlock() error {
-	return c.lock.Unlock()
+func (c *PluginCache) Unlock(ctx context.Context) error {
+	if err := c.unlock(); err != nil {
+		log.Error(err)
+		return err
+	}
+	return nil
 }
 
 // RLock acquires a read lock on the cache
-func (c *PluginCache) RLock() error {
-	succeeded, err := c.lock.TryRLockContext(context.Background(), lockAttemptDelay)
+func (c *PluginCache) RLock(ctx context.Context) error {
+	locked, err := c.lock(ctx, &c.rlocked, syscall.LOCK_SH)
 	if err != nil {
-		return errors.NewInternal(err.Error())
-	} else if !succeeded {
-		return errors.NewConflict("failed to acquire cache lock")
+		err = errors.NewInternal(err.Error())
+		log.Error(err)
+		return err
+	} else if !locked {
+		err = errors.NewConflict("failed to acquire cache lock")
+		log.Error(err)
+		return err
 	}
 	return nil
 }
 
 // IsRLocked checks whether the cache is read locked
 func (c *PluginCache) IsRLocked() bool {
-	return c.lock.Locked() || c.lock.RLocked()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.wlocked || c.rlocked
 }
 
 // RUnlock releases a read lock on the cache
-func (c *PluginCache) RUnlock() error {
-	return c.lock.Unlock()
+func (c *PluginCache) RUnlock(ctx context.Context) error {
+	if err := c.unlock(); err != nil {
+		log.Error(err)
+		return err
+	}
+	return nil
 }
 
-// GetPath gets the path of the given plugin
-func (c *PluginCache) GetPath(name configmodel.Name, version configmodel.Version) (string, error) {
+// lock attempts to acquire a file lock
+func (c *PluginCache) lock(ctx context.Context, locked *bool, flag int) (bool, error) {
+	for {
+		if ok, err := c.tryLock(locked, flag); ok || err != nil {
+			return ok, err
+		}
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		case <-time.After(lockAttemptDelay):
+			// try again
+		}
+	}
+}
+
+func (c *PluginCache) tryLock(locked *bool, flag int) (bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if *locked {
+		return true, nil
+	}
+
+	if c.fh == nil {
+		if err := c.openFH(); err != nil {
+			return false, err
+		}
+		defer c.ensureFhState()
+	}
+
+	err := syscall.Flock(int(c.fh.Fd()), flag|syscall.LOCK_NB)
+	switch err {
+	case syscall.EWOULDBLOCK:
+		return false, nil
+	case nil:
+		*locked = true
+		return true, nil
+	}
+	return false, err
+}
+
+func (c *PluginCache) unlock() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if (!c.wlocked && !c.rlocked) || c.fh == nil {
+		return nil
+	}
+
+	if err := syscall.Flock(int(c.fh.Fd()), syscall.LOCK_UN); err != nil {
+		return err
+	}
+
+	c.fh.Close()
+
+	c.wlocked = false
+	c.rlocked = false
+	c.fh = nil
+	return nil
+}
+
+func (c *PluginCache) openFH() error {
+	if c.path == "" {
+		cacheDir, err := c.getModCache()
+		if err != nil {
+			return err
+		}
+
+		if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
+			if err := os.MkdirAll(cacheDir, os.ModePerm); err != nil {
+				return err
+			}
+		}
+		c.path = filepath.Join(cacheDir, lockFileName)
+	}
+
+	fh, err := os.OpenFile(c.path, os.O_CREATE|os.O_RDONLY, os.FileMode(0666))
+	if err != nil {
+		return err
+	}
+	c.fh = fh
+	return nil
+}
+
+func (c *PluginCache) ensureFhState() {
+	if !c.wlocked && !c.rlocked && c.fh != nil {
+		c.fh.Close()
+		c.fh = nil
+	}
+}
+
+// getModCache gets the cache directory for the module target
+func (c *PluginCache) getModCache() (string, error) {
 	_, hash, err := c.resolver.Resolve()
 	if err != nil {
 		return "", err
 	}
-	dir := base64.URLEncoding.EncodeToString(hash)
-	return filepath.Join(c.Config.Path, dir, fmt.Sprintf("%s-%s.so", name, version)), nil
+	return filepath.Join(c.Config.Path, base64.URLEncoding.EncodeToString(hash)), nil
+}
+
+// GetPath gets the path of the given plugin
+func (c *PluginCache) GetPath(name configmodel.Name, version configmodel.Version) (string, error) {
+	cacheDir, err := c.getModCache()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(cacheDir, fmt.Sprintf("%s-%s.so", name, version)), nil
 }
 
 // Cached returns whether the given plugin is cached
@@ -139,13 +261,4 @@ func (c *PluginCache) Load(name configmodel.Name, version configmodel.Version) (
 		return nil, err
 	}
 	return modelplugin.Load(path)
-}
-
-func ensureDir(dir string) {
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		log.Debugf("Creating '%s'", dir)
-		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-			log.Errorf("Creating '%s' failed: %s", dir, err)
-		}
-	}
 }

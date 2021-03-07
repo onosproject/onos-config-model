@@ -15,6 +15,7 @@
 package plugincompiler
 
 import (
+	"context"
 	"github.com/onosproject/onos-config-model/pkg/model"
 	plugincache "github.com/onosproject/onos-config-model/pkg/model/plugin/cache"
 	pluginmodule "github.com/onosproject/onos-config-model/pkg/model/plugin/module"
@@ -67,7 +68,7 @@ func TestCompiler(t *testing.T) {
 		},
 	}
 
-	err = cache.Lock()
+	err = cache.Lock(context.TODO())
 	assert.NoError(t, err)
 
 	outputPath, err := cache.GetPath("test", "1.0.0")
@@ -81,6 +82,6 @@ func TestCompiler(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, plugin)
 
-	err = cache.Unlock()
+	err = cache.Unlock(context.TODO())
 	assert.NoError(t, err)
 }

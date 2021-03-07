@@ -126,19 +126,19 @@ func (s *Server) ListModels(ctx context.Context, request *configmodelapi.ListMod
 // PushModel :
 func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushModelRequest) (*configmodelapi.PushModelResponse, error) {
 	log.Debugf("Received PushModelRequest %+v", request)
-	if err := s.cache.Lock(); err != nil {
+	if err := s.cache.Lock(ctx); err != nil {
 		log.Errorf("Failed to acquire cache lock: %s", err)
 		return nil, errors.Status(err).Err()
 	}
 
 	defer func() {
 		if err := recover(); err != nil {
-			_ = s.cache.Unlock()
+			_ = s.cache.Unlock(context.Background())
 		}
 	}()
 
 	defer func() {
-		if err := s.cache.Unlock(); err != nil {
+		if err := s.cache.Unlock(context.Background()); err != nil {
 			log.Errorf("Failed to release cache lock: %s", err)
 		}
 	}()
