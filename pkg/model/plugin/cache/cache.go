@@ -69,9 +69,13 @@ type PluginCache struct {
 func (c *PluginCache) Lock(ctx context.Context) error {
 	locked, err := c.lock(ctx, &c.wlocked, syscall.LOCK_EX)
 	if err != nil {
-		return errors.NewInternal(err.Error())
+		err = errors.NewInternal(err.Error())
+		log.Error(err)
+		return err
 	} else if !locked {
-		return errors.NewConflict("failed to acquire cache lock")
+		err = errors.NewConflict("failed to acquire cache lock")
+		log.Error(err)
+		return err
 	}
 	return nil
 }
@@ -85,16 +89,24 @@ func (c *PluginCache) IsLocked() bool {
 
 // Unlock releases a write lock from the cache
 func (c *PluginCache) Unlock(ctx context.Context) error {
-	return c.unlock(ctx)
+	if err := c.unlock(); err != nil {
+		log.Error(err)
+		return err
+	}
+	return nil
 }
 
 // RLock acquires a read lock on the cache
 func (c *PluginCache) RLock(ctx context.Context) error {
 	locked, err := c.lock(ctx, &c.rlocked, syscall.LOCK_SH)
 	if err != nil {
-		return errors.NewInternal(err.Error())
+		err = errors.NewInternal(err.Error())
+		log.Error(err)
+		return err
 	} else if !locked {
-		return errors.NewConflict("failed to acquire cache lock")
+		err = errors.NewConflict("failed to acquire cache lock")
+		log.Error(err)
+		return err
 	}
 	return nil
 }
@@ -108,7 +120,11 @@ func (c *PluginCache) IsRLocked() bool {
 
 // RUnlock releases a read lock on the cache
 func (c *PluginCache) RUnlock(ctx context.Context) error {
-	return c.unlock(ctx)
+	if err := c.unlock(); err != nil {
+		log.Error(err)
+		return err
+	}
+	return nil
 }
 
 // lock attempts to acquire a file lock
@@ -152,7 +168,7 @@ func (c *PluginCache) tryLock(locked *bool, flag int) (bool, error) {
 	return false, err
 }
 
-func (c *PluginCache) unlock(ctx context.Context) error {
+func (c *PluginCache) unlock() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
