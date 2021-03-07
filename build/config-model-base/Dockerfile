@@ -1,6 +1,6 @@
 ARG CONFIG_MODEL_VERSION=latest
 
-FROM onosproject/cofig-model-build:$CONFIG_MODEL_VERSION
+FROM onosproject/config-model-build:$CONFIG_MODEL_VERSION
 
 COPY go.mod go.sum /onos-config-model/
 
