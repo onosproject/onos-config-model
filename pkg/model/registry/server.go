@@ -180,16 +180,8 @@ func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushMode
 		},
 	}
 
-	// Add the model to the registry
-	err = s.registry.AddModel(modelInfo)
-	if err != nil {
-		log.Warnf("PushModelRequest '%s@%s' failed: %s", request.Model.Name, request.Model.Version, err)
-		return nil, errors.Status(err).Err()
-	}
-
-	// Once the model has been added, the plugin needs to be compiled in the background.
-	// Acquire a lock on the cache before returning to ensure subsequent requests to
-	// load the same plugin will be blocked until compilation is complete.
+	// Acquire a lock on the cache before adding it to the registry to ensure subsequent
+	// requests to load the same plugin will be blocked until compilation is complete.
 	entry := s.cache.Entry(name, version)
 	if err := entry.Lock(ctx); err != nil {
 		log.Errorf("Failed to acquire cache lock: %s", err)
@@ -208,10 +200,18 @@ func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushMode
 		}
 	}()
 
+	// Add the model to the registry
+	err = s.registry.AddModel(modelInfo)
+	if err != nil {
+		log.Warnf("PushModelRequest '%s@%s' failed: %s", request.Model.Name, request.Model.Version, err)
+		return nil, errors.Status(err).Err()
+	}
+
 	// Look for the plugin in the cache
 	cached, err := entry.Cached()
 	if err != nil {
 		log.Errorf("Failed to compile plugin for model '%s@%s': %s", request.Model.Name, request.Model.Version, err)
+		return nil, errors.Status(err).Err()
 	}
 
 	// If the plugin is not present in the cache, compile it
