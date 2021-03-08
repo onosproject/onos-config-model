@@ -40,26 +40,26 @@ type CacheConfig struct {
 }
 
 // NewPluginCache creates a new plugin cache
-func NewPluginCache(config CacheConfig, resolver *pluginmodule.Resolver) *PluginCache {
+func NewPluginCache(config CacheConfig, resolver *pluginmodule.Resolver) (*PluginCache, error) {
 	if config.Path == "" {
 		config.Path = defaultPath
 	}
 
 	_, hash, err := resolver.Resolve()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	config.Path = filepath.Join(config.Path, base64.URLEncoding.EncodeToString(hash))
 	if _, err := os.Stat(config.Path); os.IsNotExist(err) {
 		if err := os.MkdirAll(config.Path, os.ModePerm); err != nil {
-			panic(err)
+			return nil, err
 		}
 	}
 	return &PluginCache{
 		Config:  config,
 		entries: make(map[string]*PluginEntry),
-	}
+	}, nil
 }
 
 // PluginCache is a model plugin cache

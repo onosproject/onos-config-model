@@ -96,7 +96,11 @@ func getCompileCmd() *cobra.Command {
 			cacheConfig := plugincache.CacheConfig{
 				Path: cachePath,
 			}
-			cache := plugincache.NewPluginCache(cacheConfig, resolver)
+			cache, err := plugincache.NewPluginCache(cacheConfig, resolver)
+			if err != nil {
+				return err
+			}
+
 			entry := cache.Entry(name, version)
 			if err := entry.Lock(context.Background()); err != nil {
 				return err
@@ -240,7 +244,10 @@ func getRegistryServeCmd() *cobra.Command {
 			cacheConfig := plugincache.CacheConfig{
 				Path: cachePath,
 			}
-			cache := plugincache.NewPluginCache(cacheConfig, resolver)
+			cache, err := plugincache.NewPluginCache(cacheConfig, resolver)
+			if err != nil {
+				return err
+			}
 
 			compilerConfig := plugincompiler.CompilerConfig{
 				BuildPath: buildPath,
@@ -263,7 +270,7 @@ func getRegistryServeCmd() *cobra.Command {
 			}()
 
 			log.Infof("Starting registry server at '%s'", registryPath)
-			err := server.Serve(func(address string) {
+			err = server.Serve(func(address string) {
 				log.Infof("Serving models at '%s' on %s", registryPath, address)
 			})
 			if err != nil {
