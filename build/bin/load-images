@@ -3,5 +3,4 @@
 version=$1
 
 kind load docker-image onosproject/config-model-init:${version}
-kind load docker-image onosproject/config-model-compiler:${version}
 kind load docker-image onosproject/config-model-registry:${version}

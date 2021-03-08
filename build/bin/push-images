@@ -5,5 +5,4 @@ version=$1
 
 docker push onosproject/config-model-build:${version}
 docker push onosproject/config-model-init:${version}
-docker push onosproject/config-model-compiler:${version}
 docker push onosproject/config-model-registry:${version}
