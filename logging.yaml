@@ -1,6 +1,6 @@
 loggers:
   root:
-    level: debug
+    level: info
     output:
       stdout:
         sink: stdout

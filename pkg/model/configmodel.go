@@ -15,6 +15,7 @@
 package configmodel
 
 import (
+	"fmt"
 	"github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/goyang/pkg/yang"
 	"github.com/openconfig/ygot/ygot"
@@ -55,6 +56,10 @@ type ModelInfo struct {
 	Files   []FileInfo   `json:"files"`
 	Modules []ModuleInfo `json:"modules"`
 	Plugin  PluginInfo   `json:"plugin"`
+}
+
+func (m ModelInfo) String() string {
+	return fmt.Sprintf("%s@%s", m.Name, m.Version)
 }
 
 // ModuleInfo is a config module info

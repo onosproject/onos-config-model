@@ -73,8 +73,9 @@ func (r *ConfigModelRegistry) GetModel(name configmodel.Name, version configmode
 	model, err := loadModel(path)
 	if err != nil {
 		log.Warnf("Failed loading model definition '%s': %v", path, err)
+		return configmodel.ModelInfo{}, err
 	}
-	log.Infof("Loaded model '%s': %s", path, model)
+	log.Infof("Loaded model definition '%s': %s", path, model)
 	return model, err
 }
 
