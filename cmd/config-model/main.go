@@ -89,6 +89,9 @@ func getCompileCmd() *cobra.Command {
 				Replace: modReplace,
 			}
 			resolver := pluginmodule.NewResolver(resolverConfig)
+			if _, _, err := resolver.Resolve(); err != nil {
+				return err
+			}
 
 			cacheConfig := plugincache.CacheConfig{
 				Path: cachePath,
