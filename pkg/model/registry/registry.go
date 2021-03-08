@@ -76,7 +76,7 @@ func (r *ConfigModelRegistry) GetModel(name configmodel.Name, version configmode
 		return configmodel.ModelInfo{}, err
 	}
 	log.Infof("Loaded model definition '%s': %s", path, model)
-	return model, err
+	return model, nil
 }
 
 // ListModels lists models in the registry
