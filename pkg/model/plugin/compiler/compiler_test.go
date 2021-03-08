@@ -33,9 +33,10 @@ func TestCompiler(t *testing.T) {
 		Target: "github.com/onosproject/onos-config@master",
 	})
 
-	cache := plugincache.NewPluginCache(plugincache.CacheConfig{
+	cache, err := plugincache.NewPluginCache(plugincache.CacheConfig{
 		Path: filepath.Join(moduleRoot, "test", "cache"),
 	}, resolver)
+	assert.NoError(t, err)
 
 	config := CompilerConfig{
 		TemplatePath: filepath.Join(moduleRoot, "pkg", "model", "plugin", "compiler", "templates"),
@@ -68,20 +69,18 @@ func TestCompiler(t *testing.T) {
 		},
 	}
 
-	err = cache.Lock(context.TODO())
-	assert.NoError(t, err)
-
-	outputPath, err := cache.GetPath("test", "1.0.0")
+	entry := cache.Entry("test", "1.0.0")
+	err = entry.Lock(context.TODO())
 	assert.NoError(t, err)
 
 	compiler := NewPluginCompiler(config, resolver)
-	err = compiler.CompilePlugin(modelInfo, outputPath)
+	err = compiler.CompilePlugin(modelInfo, entry.Path)
 	assert.NoError(t, err)
 
-	plugin, err := cache.Load("test", "1.0.0")
+	plugin, err := entry.Load()
 	assert.NoError(t, err)
 	assert.NotNil(t, plugin)
 
-	err = cache.Unlock(context.TODO())
+	err = entry.Unlock(context.TODO())
 	assert.NoError(t, err)
 }
