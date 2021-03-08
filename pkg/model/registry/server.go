@@ -148,10 +148,10 @@ func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushMode
 	// First check the registry for the model
 	_, err := s.registry.GetModel(name, version)
 	if err == nil {
-		err = errors.NewAlreadyExists("model '%s/%s' already exists", request.Model.Name, request.Model.Version)
+		err = errors.NewAlreadyExists("model '%s@%s' already exists", request.Model.Name, request.Model.Version)
 	}
 	if err != nil && !errors.IsNotFound(err) {
-		log.Warnf("PushModelRequest %+v failed: %v", request, err)
+		log.Warnf("PushModelRequest '%s@%s' failed: %s", request.Model.Name, request.Model.Version, err)
 		return nil, errors.Status(err).Err()
 	}
 
@@ -187,7 +187,7 @@ func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushMode
 	// Look for the plugin in the cache
 	cached, err := s.cache.Cached(name, version)
 	if err != nil {
-		log.Warnf("PushModelRequest %+v failed: %v", request, err)
+		log.Warnf("PushModelRequest '%s@%s' failed: %s", request.Model.Name, request.Model.Version, err)
 		return nil, errors.Status(err).Err()
 	}
 
@@ -195,12 +195,12 @@ func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushMode
 	if !cached {
 		path, err := s.cache.GetPath(name, version)
 		if err != nil {
-			log.Warnf("PushModelRequest %+v failed: %v", request, err)
+			log.Warnf("PushModelRequest '%s@%s' failed: %s", request.Model.Name, request.Model.Version, err)
 			return nil, errors.Status(err).Err()
 		}
 		err = s.compiler.CompilePlugin(modelInfo, path)
 		if err != nil {
-			log.Warnf("PushModelRequest %+v failed: %v", request, err)
+			log.Warnf("PushModelRequest '%s@%s' failed: %s", request.Model.Name, request.Model.Version, err)
 			return nil, errors.Status(err).Err()
 		}
 	}
@@ -208,7 +208,7 @@ func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushMode
 	// Add the model to the registry
 	err = s.registry.AddModel(modelInfo)
 	if err != nil {
-		log.Warnf("PushModelRequest %+v failed: %v", request, err)
+		log.Warnf("PushModelRequest '%s@%s' failed: %s", request.Model.Name, request.Model.Version, err)
 		return nil, errors.Status(err).Err()
 	}
 	response := &configmodelapi.PushModelResponse{}
