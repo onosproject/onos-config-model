@@ -23,13 +23,15 @@ import (
 	"time"
 )
 
-func newFileLock(path string) *FileLock {
-	return &FileLock{
+// newPluginLock creates a new plugin file lock
+func newPluginLock(path string) *pluginLock {
+	return &pluginLock{
 		path: path,
 	}
 }
 
-type FileLock struct {
+// pluginLock is a plugin file lock
+type pluginLock struct {
 	path    string
 	rlocked bool
 	wlocked bool
@@ -38,7 +40,7 @@ type FileLock struct {
 }
 
 // Lock acquires a write lock on the cache
-func (l *FileLock) Lock(ctx context.Context) error {
+func (l *pluginLock) Lock(ctx context.Context) error {
 	locked, err := l.lock(ctx, &l.wlocked, syscall.LOCK_EX)
 	if err != nil {
 		err = errors.NewInternal(err.Error())
@@ -53,14 +55,14 @@ func (l *FileLock) Lock(ctx context.Context) error {
 }
 
 // IsLocked checks whether the cache is write locked
-func (l *FileLock) IsLocked() bool {
+func (l *pluginLock) IsLocked() bool {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	return l.wlocked
 }
 
 // Unlock releases a write lock from the cache
-func (l *FileLock) Unlock(ctx context.Context) error {
+func (l *pluginLock) Unlock(ctx context.Context) error {
 	if err := l.unlock(); err != nil {
 		log.Error(err)
 		return err
@@ -69,7 +71,7 @@ func (l *FileLock) Unlock(ctx context.Context) error {
 }
 
 // RLock acquires a read lock on the cache
-func (l *FileLock) RLock(ctx context.Context) error {
+func (l *pluginLock) RLock(ctx context.Context) error {
 	locked, err := l.lock(ctx, &l.rlocked, syscall.LOCK_SH)
 	if err != nil {
 		err = errors.NewInternal(err.Error())
@@ -84,14 +86,14 @@ func (l *FileLock) RLock(ctx context.Context) error {
 }
 
 // IsRLocked checks whether the cache is read locked
-func (l *FileLock) IsRLocked() bool {
+func (l *pluginLock) IsRLocked() bool {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	return l.wlocked || l.rlocked
 }
 
 // RUnlock releases a read lock on the cache
-func (l *FileLock) RUnlock(ctx context.Context) error {
+func (l *pluginLock) RUnlock(ctx context.Context) error {
 	if err := l.unlock(); err != nil {
 		log.Error(err)
 		return err
@@ -100,7 +102,7 @@ func (l *FileLock) RUnlock(ctx context.Context) error {
 }
 
 // lock attempts to acquire a file lock
-func (l *FileLock) lock(ctx context.Context, locked *bool, flag int) (bool, error) {
+func (l *pluginLock) lock(ctx context.Context, locked *bool, flag int) (bool, error) {
 	for {
 		if ok, err := l.tryLock(locked, flag); ok || err != nil {
 			return ok, err
@@ -114,7 +116,7 @@ func (l *FileLock) lock(ctx context.Context, locked *bool, flag int) (bool, erro
 	}
 }
 
-func (l *FileLock) tryLock(locked *bool, flag int) (bool, error) {
+func (l *pluginLock) tryLock(locked *bool, flag int) (bool, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -140,7 +142,7 @@ func (l *FileLock) tryLock(locked *bool, flag int) (bool, error) {
 	return false, err
 }
 
-func (l *FileLock) unlock() error {
+func (l *pluginLock) unlock() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -160,7 +162,7 @@ func (l *FileLock) unlock() error {
 	return nil
 }
 
-func (l *FileLock) openFH() error {
+func (l *pluginLock) openFH() error {
 	fh, err := os.OpenFile(l.path, os.O_CREATE|os.O_RDONLY, os.FileMode(0666))
 	if err != nil {
 		return err
@@ -169,7 +171,7 @@ func (l *FileLock) openFH() error {
 	return nil
 }
 
-func (l *FileLock) ensureFhState() {
+func (l *pluginLock) ensureFhState() {
 	if !l.wlocked && !l.rlocked && l.fh != nil {
 		l.fh.Close()
 		l.fh = nil

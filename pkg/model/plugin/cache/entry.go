@@ -27,14 +27,14 @@ import (
 func newPluginEntry(path string, name configmodel.Name, version configmodel.Version) *PluginEntry {
 	return &PluginEntry{
 		Path: filepath.Join(path, fmt.Sprintf("%s-%s.so", name, version)),
-		lock: newFileLock(filepath.Join(path, fmt.Sprintf("%s-%s.lock", name, version))),
+		lock: newPluginLock(filepath.Join(path, fmt.Sprintf("%s-%s.lock", name, version))),
 	}
 }
 
 // PluginEntry is an entry for a plugin in the cache
 type PluginEntry struct {
 	Path string
-	lock *FileLock
+	lock *pluginLock
 }
 
 // Lock acquires a write lock on the cache
