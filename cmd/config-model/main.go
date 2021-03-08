@@ -97,14 +97,15 @@ func getCompileCmd() *cobra.Command {
 				Path: cachePath,
 			}
 			cache := plugincache.NewPluginCache(cacheConfig, resolver)
-			if err := cache.Lock(context.Background()); err != nil {
+			entry := cache.Entry(name, version)
+			if err := entry.Lock(context.Background()); err != nil {
 				return err
 			}
 			defer func() {
-				_ = cache.Unlock(context.Background())
+				_ = entry.Unlock(context.Background())
 			}()
 
-			cached, err := cache.Cached(name, version)
+			cached, err := entry.Cached()
 			if err != nil {
 				return err
 			} else if cached {
@@ -144,16 +145,11 @@ func getCompileCmd() *cobra.Command {
 				})
 			}
 
-			path, err := cache.GetPath(name, version)
-			if err != nil {
-				return err
-			}
-
 			compilerConfig := plugincompiler.CompilerConfig{
 				BuildPath: buildPath,
 			}
 			compiler := plugincompiler.NewPluginCompiler(compilerConfig, resolver)
-			return compiler.CompilePlugin(modelInfo, path)
+			return compiler.CompilePlugin(modelInfo, entry.Path)
 		},
 	}
 	cmd.Flags().StringP("name", "n", "", "the model name")
