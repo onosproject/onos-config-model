@@ -155,42 +155,42 @@ func (r *Resolver) fetchMod() (*modfile.File, Hash, error) {
 	targetPath, _ := splitModPathVersion(target)
 
 	log.Infof("Fetching module '%s'", target)
-	tmpDir, err := ioutil.TempDir("", "config-model")
+	fakeModDir, err := ioutil.TempDir("", "config-model-download")
 	if err != nil {
 		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(fakeModDir)
 
 	// Generate a temporary module with which to pull the target module
-	tmpMod := []byte("module m\n")
+	fakeMod := []byte("module m\n")
 	if replace != "" {
 		replacePath, replaceVersion := splitModPathVersion(replace)
-		tmpMod = append(tmpMod, []byte(fmt.Sprintf("replace %s => %s %s\n", targetPath, replacePath, replaceVersion))...)
+		fakeMod = append(fakeMod, []byte(fmt.Sprintf("replace %s => %s %s\n", targetPath, replacePath, replaceVersion))...)
 	}
 
 	// Write the temporary module file
-	tmpModPath := filepath.Join(tmpDir, modFile)
-	if err := ioutil.WriteFile(tmpModPath, tmpMod, 0666); err != nil {
+	fakeModPath := filepath.Join(fakeModDir, modFile)
+	if err := ioutil.WriteFile(fakeModPath, fakeMod, 0666); err != nil {
 		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
 
 	// Add the target dependency to the temporary module and download the target module
-	if _, err := r.exec(tmpDir, "go", "get", "-d", target); err != nil {
+	if _, err := r.exec(fakeModDir, "go", "get", "-d", target); err != nil {
 		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
 
 	// Read the updated go.mod for the temporary module
-	tmpMod, err = ioutil.ReadFile(tmpModPath)
+	fakeMod, err = ioutil.ReadFile(fakeModPath)
 	if err != nil {
 		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
 
 	// Parse the updated go.mod for the temporary module
-	tmpModFile, err := modfile.Parse(tmpModPath, tmpMod, nil)
+	tmpModFile, err := modfile.Parse(fakeModPath, fakeMod, nil)
 	if err != nil {
 		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
@@ -241,8 +241,36 @@ func (r *Resolver) fetchMod() (*modfile.File, Hash, error) {
 	}
 
 	// Parse the target go.mod
-	modFile, err := modfile.Parse(cacheModPath, modBytes, nil)
+	targetModFile, err := modfile.Parse(cacheModPath, modBytes, nil)
 	if err != nil {
+		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
+		return nil, nil, err
+	}
+
+	// Create a temporary directory for the target module
+	targetModDir, err := ioutil.TempDir("", "config-model-deps")
+	if err != nil {
+		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
+		return nil, nil, err
+	}
+	defer os.RemoveAll(targetModDir)
+
+	// Format the target go.mod file
+	targetModBytes, err := targetModFile.Format()
+	if err != nil {
+		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
+		return nil, nil, err
+	}
+
+	// Write the target go.mod file
+	targetModPath := filepath.Join(targetModDir, "go.mod")
+	if err := ioutil.WriteFile(targetModPath, targetModBytes, 0666); err != nil {
+		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
+		return nil, nil, err
+	}
+
+	// Add the target dependency to the temporary module and download the target module
+	if _, err := r.exec(targetModDir, "go", "mod", "download"); err != nil {
 		log.Errorf("Failed to fetch module '%s': %s", r.Config.Target, err)
 		return nil, nil, err
 	}
@@ -254,7 +282,7 @@ func (r *Resolver) fetchMod() (*modfile.File, Hash, error) {
 		log.Errorf("Failed to fetch module '%s' hash: %s", r.Config.Target, err)
 		return nil, nil, err
 	}
-	return modFile, Hash(hashBytes), nil
+	return targetModFile, hashBytes, nil
 }
 
 func (r *Resolver) getModPath() string {
