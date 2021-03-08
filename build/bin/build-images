@@ -10,9 +10,6 @@ docker build . -f build/config-model-base/Dockerfile \
 docker build . -f build/config-model-init/Dockerfile \
     --build-arg CONFIG_MODEL_VERSION=${version} \
     -t onosproject/config-model-init:${version}
-docker build . -f build/config-model-compiler/Dockerfile \
-    --build-arg CONFIG_MODEL_VERSION=${version} \
-    -t onosproject/config-model-compiler:${version}
 docker build . -f build/config-model-registry/Dockerfile \
     --build-arg CONFIG_MODEL_VERSION=${version} \
     -t onosproject/config-model-registry:${version}
