@@ -49,7 +49,7 @@ func NewPluginCache(config CacheConfig, resolver *pluginmodule.Resolver) (*Plugi
 		return nil, err
 	}
 
-	config.Path = filepath.Join(config.Path, base64.URLEncoding.EncodeToString(hash))
+	config.Path = filepath.Join(config.Path, base64.RawURLEncoding.EncodeToString(hash))
 	if _, err := os.Stat(config.Path); os.IsNotExist(err) {
 		if err := os.MkdirAll(config.Path, os.ModePerm); err != nil {
 			return nil, err
