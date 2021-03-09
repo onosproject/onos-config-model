@@ -62,7 +62,7 @@ push: images
 	./build/bin/push-images ${ONOS_CONFIG_MODEL_VERSION}
 
 publish: # @HELP publish version on github and dockerhub
-	./../build-tools/publish-version ${VERSION} onosproject/config-model-init onosproject/config-model-registry
+	./../build-tools/publish-version ${VERSION} onosproject/config-model-init onosproject/config-model-registry onosproject/config-model-build
 
 jenkins-publish: build-tools jenkins-tools images # @HELP Jenkins calls this to publish artifacts
 	./build/bin/push-images ${ONOS_CONFIG_MODEL_VERSION}
