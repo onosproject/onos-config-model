@@ -47,8 +47,9 @@ func TestCompiler(t *testing.T) {
 	assert.NoError(t, err)
 
 	modelInfo := configmodel.ModelInfo{
-		Name:    "test",
-		Version: "1.0.0",
+		Name:         "test",
+		Version:      "1.0.0",
+		GetStateMode: configmodel.GetStateExplicitRoPaths,
 		Modules: []configmodel.ModuleInfo{
 			{
 				Name:         "test",
