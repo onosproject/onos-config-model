@@ -194,12 +194,6 @@ func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushMode
 		}
 	}()
 
-	defer func() {
-		if err := entry.Unlock(context.Background()); err != nil {
-			log.Errorf("Failed to release cache lock: %s", err)
-		}
-	}()
-
 	// Add the model to the registry
 	err = s.registry.AddModel(modelInfo)
 	if err != nil {
