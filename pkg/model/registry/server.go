@@ -169,11 +169,24 @@ func (s *Server) PushModel(ctx context.Context, request *configmodelapi.PushMode
 		}
 	}
 
+	var getStateMode configmodel.GetStateMode
+	switch request.Model.GetStateMode {
+	case configmodelapi.GetStateMode_NONE:
+		getStateMode = configmodel.GetStateNone
+	case configmodelapi.GetStateMode_OP_STATE:
+		getStateMode = configmodel.GetStateOpState
+	case configmodelapi.GetStateMode_EXPLICIT_RO_PATHS:
+		getStateMode = configmodel.GetStateExplicitRoPaths
+	case configmodelapi.GetStateMode_EXPLICIT_RO_PATHS_EXPAND_WILDCARDS:
+		getStateMode = configmodel.GetStateExplicitRoPathsExpandWildcards
+	}
+
 	modelInfo := configmodel.ModelInfo{
-		Name:    configmodel.Name(request.Model.Name),
-		Version: configmodel.Version(request.Model.Version),
-		Files:   fileInfos,
-		Modules: moduleInfos,
+		Name:         configmodel.Name(request.Model.Name),
+		Version:      configmodel.Version(request.Model.Version),
+		GetStateMode: getStateMode,
+		Files:        fileInfos,
+		Modules:      moduleInfos,
 		Plugin: configmodel.PluginInfo{
 			Name:    configmodel.Name(request.Model.Name),
 			Version: configmodel.Version(request.Model.Version),

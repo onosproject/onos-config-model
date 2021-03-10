@@ -42,7 +42,7 @@ func (m ConfigModel) Schema() (map[string]*yang.Entry, error) {
 }
 
 func (m ConfigModel) GetStateMode() configmodel.GetStateMode {
-    return configmodel.GetStateNone
+    return configmodel.{{ .Model.GetStateMode | quote }}
 }
 
 func (m ConfigModel) Unmarshaler() configmodel.Unmarshaler {
