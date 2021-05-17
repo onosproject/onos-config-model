@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/golang/protobuf v1.4.3 // indirect
-	github.com/onosproject/onos-api/go v0.7.25
+	github.com/onosproject/onos-api/go v0.7.38
 	github.com/onosproject/onos-lib-go v0.7.10
 	github.com/openconfig/gnmi v0.0.0-20200617225440-d2b4e6a45802
 	github.com/openconfig/goyang v0.2.2
