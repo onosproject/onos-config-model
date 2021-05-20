@@ -67,6 +67,7 @@ publish: # @HELP publish version on github and dockerhub
 jenkins-publish: build-tools jenkins-tools images # @HELP Jenkins calls this to publish artifacts
 	./build/bin/push-images ${ONOS_CONFIG_MODEL_VERSION}
 	../build-tools/release-merge-commit
+	../build-tools/build/docs/push-docs
 
 clean: # @HELP remove all the build artifacts
 	@rm -r `pwd`/models
