@@ -191,7 +191,13 @@ func (c *PluginCompiler) getPluginMod(model configmodel.ModelInfo) string {
 
 func (c *PluginCompiler) compilePlugin(model configmodel.ModelInfo, path string) error {
 	log.Infof("Compiling plugin '%s'", path)
-	_, err := c.exec(c.getModuleDir(model), "go", "build", "-o", path, "-buildmode=plugin", c.getPluginMod(model))
+	log.Infof("go build -o %s -buildmode=plugin %s", path, c.getPluginMod(model))
+	_, err := c.exec(c.getModuleDir(model), "go", "mod", "tidy")
+	if err != nil {
+		log.Errorf("running 'go mod tidy' in '%s' failed: %s", path, err)
+		return err
+	}
+	_, err = c.exec(c.getModuleDir(model), "go", "build", "-o", path, "-buildmode=plugin", c.getPluginMod(model))
 	if err != nil {
 		log.Errorf("Compiling plugin '%s' failed: %s", path, err)
 		return err
@@ -246,8 +252,8 @@ func (c *PluginCompiler) generateYangBindings(model configmodel.ModelInfo) error
 	args := []string{
 		"run",
 		"github.com/openconfig/ygot/generator",
-		"-path=yang",
-		"-output_file=model/generated.go",
+		fmt.Sprintf("-path=%s/yang", c.getModuleDir(model)),
+		fmt.Sprintf("-output_file=%s/model/generated.go", c.getModuleDir(model)),
 		"-package_name=configmodel",
 		"-generate_fakeroot",
 	}
@@ -256,8 +262,8 @@ func (c *PluginCompiler) generateYangBindings(model configmodel.ModelInfo) error
 		args = append(args, module.File)
 	}
 
+	log.Infof("Run compilation in %s with go %s", c.getModuleDir(model), strings.Join(args, " "))
 	cmd := exec.Command("go", args...)
-	cmd.Dir = c.getModuleDir(model)
 	cmd.Env = os.Environ()
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
