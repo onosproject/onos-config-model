@@ -97,6 +97,7 @@ type TemplateInfo struct {
 type CompilerConfig struct {
 	TemplatePath string
 	BuildPath    string
+	SkipCleanUp  bool
 }
 
 // NewPluginCompiler creates a new model plugin compiler
@@ -218,6 +219,9 @@ func (c *PluginCompiler) exec(dir string, name string, args ...string) (string, 
 }
 
 func (c *PluginCompiler) cleanBuild(model configmodel.ModelInfo) error {
+	if c.Config.SkipCleanUp {
+		return nil
+	}
 	if _, err := os.Stat(c.getModuleDir(model)); err == nil {
 		return os.RemoveAll(c.getModuleDir(model))
 	}
@@ -383,6 +387,9 @@ func (c *PluginCompiler) createDir(dir string) {
 }
 
 func (c *PluginCompiler) removeDir(dir string) {
+	if c.Config.SkipCleanUp {
+		return
+	}
 	if _, err := os.Stat(dir); err == nil {
 		log.Debugf("Removing '%s'", dir)
 		if err := os.RemoveAll(dir); err != nil {

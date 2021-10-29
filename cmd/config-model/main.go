@@ -120,6 +120,7 @@ func getRegistryServeCmd() *cobra.Command {
 			modTarget, _ := cmd.Flags().GetString("mod-target")
 			modReplace, _ := cmd.Flags().GetString("mod-replace")
 			port, _ := cmd.Flags().GetInt16("port")
+			skipCleanup, _ := cmd.Flags().GetBool("skipcleanup")
 
 			server := northbound.NewServer(&northbound.ServerConfig{
 				CaPath:      &caCert,
@@ -146,7 +147,8 @@ func getRegistryServeCmd() *cobra.Command {
 			}
 
 			compilerConfig := plugincompiler.CompilerConfig{
-				BuildPath: buildPath,
+				BuildPath:   buildPath,
+				SkipCleanUp: skipCleanup,
 			}
 			compiler := plugincompiler.NewPluginCompiler(compilerConfig, resolver)
 
