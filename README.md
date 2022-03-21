@@ -1,3 +1,7 @@
+# DEPRECATED
+*The contents of this repository have been obsoleted with the rewrite of `onos-config`. Configuration models
+are now generated at build time and are deployed as sidecar containers in the `onos-config` pod.*
+
 # Config Model Support
 
 This project provides a library and tools for managing YANG models in Go. It defines
