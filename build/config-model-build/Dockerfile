@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2020-present Open Networking Foundation <info@opennetworking.org>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 FROM golang:1.17.8-alpine3.14
 
 RUN apk upgrade --update --no-cache && apk add --update make gcc musl-dev git

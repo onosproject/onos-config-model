@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2020-present Open Networking Foundation <info@opennetworking.org>
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # DEPRECATED
 *The contents of this repository have been obsoleted with the rewrite of `onos-config`. Configuration models
 are now generated at build time and are deployed as sidecar containers in the `onos-config` pod.*
